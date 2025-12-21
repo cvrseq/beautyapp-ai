@@ -1,0 +1,86 @@
+import { v } from 'convex/values';
+import { internal } from './_generated/api';
+import { action } from './_generated/server';
+
+interface CosmeticAnalysis {
+  pros: string[];
+  cons: string[];
+  hazards: 'low' | 'medium' | 'high';
+}
+
+interface ProductResult {
+  productId?: string;
+  brand?: string;
+  name?: string;
+  analysis?: CosmeticAnalysis;
+  price?: string;
+  error?: string;
+}
+
+export const analyzeProduct = action({
+  args: { imageBase64: v.string() },
+  handler: async (ctx, args): Promise<ProductResult> => {
+    // 1. Распознавание через ИИ
+    // Добавляем 'as any', чтобы избежать конфликтов типов до генерации
+    const productInfo = (await ctx.runAction(
+      internal.ai_logic.identifyProduct,
+      {
+        imageBase64: args.imageBase64,
+      }
+    )) as any;
+
+    if (!productInfo || productInfo.confidence < 0.7) {
+      return { error: 'Не удалось четко распознать продукт.' };
+    }
+
+    // 2. Реальная логика Tavily (Добавляем поиск цен)
+    let searchPrice = 'Уточняется';
+    try {
+      const searchResponse = await fetch('https://api.tavily.com/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_key: process.env.TAVILY_API_KEY,
+          query: `цена на косметику ${productInfo.brand} ${productInfo.name} в рублях 2025`,
+          search_depth: 'basic',
+          include_answer: true,
+        }),
+      });
+      const searchData = await searchResponse.json();
+      searchPrice = searchData.answer || 'Не найдено';
+    } catch (e) {
+      console.error('Tavily error:', e);
+    }
+
+    // 3. Конвертация base64 в Blob (Convex-way)
+    // Используем стандартный подход для браузерных сред/Edge
+    const binary = atob(args.imageBase64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    const storageId = await ctx.storage.store(
+      new Blob([bytes], { type: 'image/jpeg' })
+    );
+
+    // 4. Сохранение в БД
+    const productId: string = await ctx.runMutation(
+      internal.products.saveProduct,
+      {
+        brand: productInfo.brand,
+        name: productInfo.name,
+        analysis: productInfo.analysis,
+        price: searchPrice,
+        storageId: storageId,
+      }
+    );
+
+    return {
+      productId,
+      brand: productInfo.brand,
+      name: productInfo.name,
+      analysis: productInfo.analysis,
+      price: searchPrice,
+    };
+  },
+});
