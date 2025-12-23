@@ -15,6 +15,7 @@ import {
 export default function CameraScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const cameraRef = useRef<CameraView>(null);
   const analyze = useAction(api.analysis.analyzeProduct);
 
@@ -57,6 +58,7 @@ export default function CameraScreen() {
   const takeAndAnalyzePhoto = async () => {
     if (!cameraRef.current || isAnalyzing) return;
     try {
+      setErrorMessage(null);
       setIsAnalyzing(true);
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.5 });
 
@@ -73,19 +75,26 @@ export default function CameraScreen() {
 
         if (manipulated.base64) {
           const result = await analyze({ imageBase64: manipulated.base64 });
-          if (result.error) {
-            alert(result.error);
+          if (!result || (result as any).error || !(result as any).productId) {
+            setErrorMessage(
+              (result as any)?.error ||
+                'Не удалось проанализировать фото. Попробуйте поднести камеру ближе и убрать блики.'
+            );
           } else {
             router.push({
               pathname: '/product-result',
-              params: { id: result.productId },
+              params: { id: (result as any).productId },
             });
           }
+        } else {
+          setErrorMessage(
+            'Не удалось получить данные снимка. Попробуйте сделать фото ещё раз.'
+          );
         }
       }
     } catch (error) {
       console.error(error);
-      alert('Ошибка камеры: ' + error);
+      setErrorMessage('Ошибка камеры. Попробуйте перезапустить приложение или сделать снимок ещё раз.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -98,6 +107,13 @@ export default function CameraScreen() {
 
       {/* Интерфейс поверх камеры */}
       <View style={styles.overlay}>
+        {errorMessage && !isAnalyzing && (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorTitle}>Не получилось 😔</Text>
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        )}
+
         {isAnalyzing ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator size="large" color="#FF69B4" />
@@ -142,6 +158,24 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 20,
     alignItems: 'center',
+  },
+  errorBox: {
+    backgroundColor: 'rgba(248, 113, 113, 0.95)', // красный, но мягкий
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 18,
+    marginBottom: 12,
+    maxWidth: '90%',
+  },
+  errorTitle: {
+    color: 'white',
+    fontWeight: 'bold',
+    marginBottom: 4,
+    fontSize: 14,
+  },
+  errorText: {
+    color: 'white',
+    fontSize: 13,
   },
   captureButton: {
     width: 80,

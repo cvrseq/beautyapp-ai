@@ -17,6 +17,25 @@ export default function ProductResultScreen() {
   // Получаем данные. id прилетает строкой, приводим к any для Convex
   const product = useQuery(api.products.getById, { id: id as any });
 
+  if (!id) {
+    return (
+      <View className="flex-1 justify-center items-center bg-white px-8">
+        <Text className="text-xl font-bold text-slate-900 mb-2">
+          Что‑то пошло не так
+        </Text>
+        <Text className="text-slate-500 text-center mb-6">
+          Не удалось определить продукт. Попробуйте отсканировать ещё раз.
+        </Text>
+        <TouchableOpacity
+          onPress={() => router.replace('/camera')}
+          className="bg-slate-900 px-6 py-4 rounded-2xl"
+        >
+          <Text className="text-white font-bold">Вернуться к сканеру</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   // 1. Состояние загрузки
   if (!product) {
     return (
@@ -29,14 +48,35 @@ export default function ProductResultScreen() {
     );
   }
 
+  if (!product) {
+    return (
+      <View className="flex-1 justify-center items-center bg-white px-8">
+        <Text className="text-xl font-bold text-slate-900 mb-2">
+          Продукт не найден
+        </Text>
+        <Text className="text-slate-500 text-center mb-6">
+          Не удалось загрузить данные по этому скану. Возможно, запись была
+          удалена или произошла ошибка сети.
+        </Text>
+        <TouchableOpacity
+          onPress={() => router.replace('/camera')}
+          className="bg-slate-900 px-6 py-4 rounded-2xl"
+        >
+          <Text className="text-white font-bold">Попробовать ещё раз</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   // 2. Парсим JSON с анализом
-  let analysis;
+  let analysis: any = { ingredients: [] };
   try {
     analysis =
       typeof product.ingredientsAnalysis === 'string'
         ? JSON.parse(product.ingredientsAnalysis)
         : product.ingredientsAnalysis;
   } catch (e) {
+    console.error('Failed to parse ingredientsAnalysis', e);
     analysis = { ingredients: [] };
   }
 

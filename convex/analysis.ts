@@ -21,17 +21,29 @@ export const analyzeProduct = action({
   args: { imageBase64: v.string() },
   handler: async (ctx, args): Promise<ProductResult> => {
     // 1. Распознавание через ИИ
-    // Добавляем 'as any', чтобы избежать конфликтов типов до генерации
-    const productInfo = (await ctx.runAction(
-      internal.ai_logic.identifyProduct,
-      {
-        imageBase64: args.imageBase64,
-      }
-    )) as any;
+    const aiResult = (await ctx.runAction(internal.ai_logic.identifyProduct, {
+      imageBase64: args.imageBase64,
+    })) as any;
 
-    if (!productInfo || productInfo.confidence < 0.7) {
+    if (!aiResult || aiResult.error) {
+      return {
+        error:
+          aiResult?.error ||
+          'Не удалось распознать продукт. Попробуйте сделать фото ещё раз.',
+      };
+    }
+
+    if (typeof aiResult.confidence !== 'number') {
+      return {
+        error: 'ИИ вернул некорректный результат. Попробуйте переснять фото.',
+      };
+    }
+
+    if (aiResult.confidence < 0.7) {
       return { error: 'Не удалось четко распознать продукт.' };
     }
+
+    const productInfo = aiResult;
 
     // 2. Реальная логика Tavily (Добавляем поиск цен)
     let searchPrice = 'Уточняется';
@@ -50,6 +62,7 @@ export const analyzeProduct = action({
       searchPrice = searchData.answer || 'Не найдено';
     } catch (e) {
       console.error('Tavily error:', e);
+      // тихо падаем на дефолтное "Уточняется"
     }
 
     // 3. Конвертация base64 в Blob (Convex-way)
