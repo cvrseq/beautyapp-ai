@@ -10,6 +10,7 @@
 
 import type * as ai_logic from "../ai_logic.js";
 import type * as analysis from "../analysis.js";
+import type * as migrations from "../migrations.js";
 import type * as myfunc from "../myfunc.js";
 import type * as products from "../products.js";
 
@@ -22,6 +23,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   ai_logic: typeof ai_logic;
   analysis: typeof analysis;
+  migrations: typeof migrations;
   myfunc: typeof myfunc;
   products: typeof products;
 }>;

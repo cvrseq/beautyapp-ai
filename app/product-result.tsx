@@ -1,4 +1,5 @@
 import { api } from '@/convex/_generated/api';
+import { useSkinType } from '@/hooks/useSkinType';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from 'convex/react';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -13,6 +14,7 @@ import {
 // ВАЖНО: export default — обязателен для Expo Router
 export default function ProductResultScreen() {
   const { id } = useLocalSearchParams();
+  const { skinType } = useSkinType();
 
   // Получаем данные. id прилетает строкой, приводим к any для Convex
   const product = useQuery(api.products.getById, { id: id as any });
@@ -44,26 +46,6 @@ export default function ProductResultScreen() {
         <Text className="text-slate-500 mt-4 font-medium">
           ИИ анализирует состав...
         </Text>
-      </View>
-    );
-  }
-
-  if (!product) {
-    return (
-      <View className="flex-1 justify-center items-center bg-white px-8">
-        <Text className="text-xl font-bold text-slate-900 mb-2">
-          Продукт не найден
-        </Text>
-        <Text className="text-slate-500 text-center mb-6">
-          Не удалось загрузить данные по этому скану. Возможно, запись была
-          удалена или произошла ошибка сети.
-        </Text>
-        <TouchableOpacity
-          onPress={() => router.replace('/camera')}
-          className="bg-slate-900 px-6 py-4 rounded-2xl"
-        >
-          <Text className="text-white font-bold">Попробовать ещё раз</Text>
-        </TouchableOpacity>
       </View>
     );
   }
@@ -123,6 +105,96 @@ export default function ProductResultScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Блок совместимости с типом кожи */}
+        {skinType && product.skinTypeCompatibility && (
+          (() => {
+            const compatibility = product.skinTypeCompatibility[skinType];
+            if (!compatibility || typeof compatibility !== 'object') return null;
+            
+            const status = compatibility.status || 'neutral';
+            const score = typeof compatibility.score === 'number' ? compatibility.score : 50;
+            
+            const skinTypeLabels: Record<'dry' | 'oily' | 'combination' | 'normal' | 'sensitive', string> = {
+              dry: 'сухой',
+              oily: 'жирной',
+              combination: 'комбинированной',
+              normal: 'нормальной',
+              sensitive: 'чувствительной',
+            };
+            
+            // Определяем стиль в зависимости от статуса
+            if (status === 'bad' || score < 40) {
+              return (
+                <View className="bg-red-50 border-2 border-red-200 p-4 rounded-2xl mb-6">
+                  <View className="flex-row items-start mb-2">
+                    <Ionicons name="alert-circle" size={24} color="#DC2626" style={{ marginRight: 8 }} />
+                    <View className="flex-1">
+                      <View className="flex-row items-center justify-between mb-1">
+                        <Text className="text-red-800 font-bold text-lg">
+                          Не рекомендуется для {skinTypeLabels[skinType]} кожи
+                        </Text>
+                        <View className="bg-red-200 px-3 py-1 rounded-full">
+                          <Text className="text-red-800 font-bold text-sm">{score}%</Text>
+                        </View>
+                      </View>
+                      <Text className="text-red-700 text-sm leading-5">
+                        Состав этого продукта может не подойти твоему типу кожи. 
+                        Обрати внимание на ингредиенты ниже — некоторые из них могут вызвать 
+                        нежелательные реакции.
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            } else if (status === 'good' || score >= 70) {
+              return (
+                <View className="bg-green-50 border-2 border-green-200 p-4 rounded-2xl mb-6">
+                  <View className="flex-row items-start mb-2">
+                    <Ionicons name="checkmark-circle" size={24} color="#16A34A" style={{ marginRight: 8 }} />
+                    <View className="flex-1">
+                      <View className="flex-row items-center justify-between mb-1">
+                        <Text className="text-green-800 font-bold text-lg">
+                          Отлично подходит для {skinTypeLabels[skinType]} кожи
+                        </Text>
+                        <View className="bg-green-200 px-3 py-1 rounded-full">
+                          <Text className="text-green-800 font-bold text-sm">{score}%</Text>
+                        </View>
+                      </View>
+                      <Text className="text-green-700 text-sm leading-5">
+                        Состав этого продукта хорошо подходит для твоего типа кожи. 
+                        Ингредиенты должны работать эффективно и безопасно.
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            } else {
+              // neutral или 40-69
+              return (
+                <View className="bg-yellow-50 border-2 border-yellow-200 p-4 rounded-2xl mb-6">
+                  <View className="flex-row items-start mb-2">
+                    <Ionicons name="help-circle" size={24} color="#CA8A04" style={{ marginRight: 8 }} />
+                    <View className="flex-1">
+                      <View className="flex-row items-center justify-between mb-1">
+                        <Text className="text-yellow-800 font-bold text-lg">
+                          Нейтрально для {skinTypeLabels[skinType]} кожи
+                        </Text>
+                        <View className="bg-yellow-200 px-3 py-1 rounded-full">
+                          <Text className="text-yellow-800 font-bold text-sm">{score}%</Text>
+                        </View>
+                      </View>
+                      <Text className="text-yellow-700 text-sm leading-5">
+                        Продукт может подойти, но стоит внимательно изучить состав. 
+                        Обрати внимание на ингредиенты ниже.
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            }
+          })()
+        )}
 
         <Text className="text-xl font-bold mb-4 text-slate-800">
           Разбор состава ✨

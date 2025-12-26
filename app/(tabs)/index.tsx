@@ -1,8 +1,18 @@
+import { useSkinType } from '@/hooks/useSkinType';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 export default function HomeScreen() {
+  const { skinType, isLoading } = useSkinType();
+  const [showSkinTypePrompt, setShowSkinTypePrompt] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading && !skinType) {
+      setShowSkinTypePrompt(true);
+    }
+  }, [skinType, isLoading]);
   return (
     <ScrollView className="flex-1 bg-slate-50">
       <View className="p-8 pt-20">
@@ -12,6 +22,52 @@ export default function HomeScreen() {
         <Text className="text-4xl font-extrabold text-slate-900 mt-2">
           Выбирай лучшее ✨
         </Text>
+
+        {/* Предупреждение/кнопка для настройки типа кожи */}
+        {showSkinTypePrompt && (
+          <View className="mt-6 bg-yellow-50 border-2 border-yellow-200 p-4 rounded-2xl">
+            <View className="flex-row items-start justify-between">
+              <View className="flex-1 mr-4">
+                <Text className="text-yellow-900 font-bold text-base mb-1">
+                  Расскажи о своём типе кожи
+                </Text>
+                <Text className="text-yellow-800 text-sm leading-5">
+                  Мы подберём идеальную косметику специально для тебя
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowSkinTypePrompt(false);
+                  router.push('/skin-type-quiz' as any);
+                }}
+                className="bg-yellow-600 px-4 py-2 rounded-xl"
+              >
+                <Text className="text-white font-bold text-sm">Настроить</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Кнопка изменения типа кожи (если уже настроен) */}
+        {skinType && !showSkinTypePrompt && (
+          <TouchableOpacity
+            onPress={() => router.push('/skin-type-quiz' as any)}
+            className="mt-6 bg-white border border-slate-200 p-3 rounded-xl flex-row items-center justify-between"
+          >
+            <View className="flex-row items-center">
+              <Ionicons name="person-circle-outline" size={20} color="#64748b" />
+              <Text className="text-slate-700 text-sm ml-2">
+                Тип кожи: {
+                  skinType === 'dry' ? 'Сухая' :
+                  skinType === 'oily' ? 'Жирная' :
+                  skinType === 'combination' ? 'Комбинированная' :
+                  skinType === 'normal' ? 'Нормальная' : 'Чувствительная'
+                }
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#64748b" />
+          </TouchableOpacity>
+        )}
 
         <View className="mt-10 space-y-4">
           {/* Кнопка СКАНЕРА */}
@@ -29,7 +85,10 @@ export default function HomeScreen() {
           </TouchableOpacity>
 
           {/* Кнопка ПОИСКА */}
-          <TouchableOpacity className="bg-white border-2 border-slate-200 p-6 rounded-3xl flex-row items-center justify-between">
+          <TouchableOpacity
+            onPress={() => router.push('/search' as any)}
+            className="bg-white border-2 border-slate-200 p-6 rounded-3xl flex-row items-center justify-between active:bg-slate-50"
+          >
             <View>
               <Text className="text-slate-800 text-xl font-bold">
                 Поиск по названию

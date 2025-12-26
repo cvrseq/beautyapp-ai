@@ -13,5 +13,8 @@ export default defineSchema({
     ingredientsAnalysis: v.string(),
     priceEstimate: v.string(),
     imageUrl: v.string(), // Ссылка на фото в хранилище Convex
-  }).index('by_name', ['name']), // Индекс для быстрого поиска по названию
+    skinTypeCompatibility: v.optional(v.any()), // Временно any для миграции старых данных
+  })
+    .index('by_name', ['name']) // Индекс для быстрого поиска по названию
+    .index('by_brand', ['brand']), // Индекс для поиска по бренду
 });

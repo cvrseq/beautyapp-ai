@@ -18,11 +18,21 @@ interface ProductResult {
 }
 
 export const analyzeProduct = action({
-  args: { imageBase64: v.string() },
+  args: { 
+    imageBase64: v.string(),
+    skinType: v.optional(v.union(
+      v.literal('dry'),
+      v.literal('oily'),
+      v.literal('combination'),
+      v.literal('normal'),
+      v.literal('sensitive')
+    ))
+  },
   handler: async (ctx, args): Promise<ProductResult> => {
     // 1. Распознавание через ИИ
     const aiResult = (await ctx.runAction(internal.ai_logic.identifyProduct, {
       imageBase64: args.imageBase64,
+      skinType: args.skinType,
     })) as any;
 
     if (!aiResult || aiResult.error) {
@@ -85,6 +95,7 @@ export const analyzeProduct = action({
         analysis: productInfo.analysis,
         price: searchPrice,
         storageId: storageId,
+        skinCompatibility: productInfo.skinCompatibility,
       }
     );
 

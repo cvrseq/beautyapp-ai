@@ -1,4 +1,5 @@
 import { api } from '@/convex/_generated/api';
+import { useSkinType } from '@/hooks/useSkinType';
 import { useAction } from 'convex/react';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -18,6 +19,7 @@ export default function CameraScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const cameraRef = useRef<CameraView>(null);
   const analyze = useAction(api.analysis.analyzeProduct);
+  const { skinType } = useSkinType();
 
   // Принудительно запрашиваем права
   useEffect(() => {
@@ -74,7 +76,10 @@ export default function CameraScreen() {
         );
 
         if (manipulated.base64) {
-          const result = await analyze({ imageBase64: manipulated.base64 });
+          const result = await analyze({ 
+            imageBase64: manipulated.base64,
+            skinType: skinType || undefined,
+          });
           if (!result || (result as any).error || !(result as any).productId) {
             setErrorMessage(
               (result as any)?.error ||

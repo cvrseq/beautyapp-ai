@@ -3,7 +3,16 @@ import { v } from 'convex/values';
 import { internalAction } from './_generated/server';
 
 export const identifyProduct = internalAction({
-  args: { imageBase64: v.string() },
+  args: { 
+    imageBase64: v.string(),
+    skinType: v.optional(v.union(
+      v.literal('dry'),
+      v.literal('oily'),
+      v.literal('combination'),
+      v.literal('normal'),
+      v.literal('sensitive')
+    ))
+  },
   handler: async (_ctx, args) => {
     const API_KEY = process.env.GEMINI_API_KEY;
 
@@ -36,9 +45,16 @@ export const identifyProduct = internalAction({
                   text: [
                     'Ты — эксперт косметики.',
                     'Определи бренд, название и проанализируй состав.',
+                    args.skinType 
+                      ? `Учитывай, что у пользователя ${args.skinType === 'dry' ? 'сухая' : args.skinType === 'oily' ? 'жирная' : args.skinType === 'combination' ? 'комбинированная' : args.skinType === 'normal' ? 'нормальная' : 'чувствительная'} кожа.`
+                      : '',
                     'Верни ТОЛЬКО чистый JSON (без markdown ```json) в формате:',
-                    '{brand, name, confidence, analysis: {pros, cons, hazards, ingredients: [{name, status, desc}]}}.',
-                  ].join(' '),
+                    '{brand, name, confidence, analysis: {pros, cons, hazards, ingredients: [{name, status, desc}]}, skinCompatibility: {dry: {status: "good"|"bad"|"neutral", score: число от 0 до 100}, oily: {status, score}, combination: {status, score}, normal: {status, score}, sensitive: {status, score}}}.',
+                    'В skinCompatibility для каждого типа кожи укажи:',
+                    '- status: "good" (хорошо подходит, score >= 70), "neutral" (нейтрально, 40-69), "bad" (не подходит, < 40)',
+                    '- score: число от 0 до 100, где 100 = идеально подходит, 0 = абсолютно не подходит',
+                    'Оценивай на основе состава: ингредиенты, которые подходят для данного типа кожи повышают score, неподходящие - понижают.',
+                  ].filter(Boolean).join(' '),
                 },
                 {
                   type: 'image_url',
@@ -109,6 +125,55 @@ export const identifyProduct = internalAction({
         return {
           error: 'Не удалось уверенно определить продукт. Попробуйте другой ракурс.',
         };
+      }
+
+      // Валидация и нормализация skinCompatibility
+      const validTypes = ['dry', 'oily', 'combination', 'normal', 'sensitive'];
+      const validStatuses = ['good', 'bad', 'neutral'];
+      
+      if (!parsed.skinCompatibility) {
+        // Если нет skinCompatibility, создаём нейтральные значения
+        parsed.skinCompatibility = {};
+        for (const type of validTypes) {
+          parsed.skinCompatibility[type] = { status: 'neutral', score: 50 };
+        }
+      } else {
+        // Валидируем и нормализуем существующие данные
+        for (const type of validTypes) {
+          if (!parsed.skinCompatibility[type] || typeof parsed.skinCompatibility[type] !== 'object') {
+            // Старый формат или отсутствует - преобразуем
+            const oldValue = parsed.skinCompatibility[type];
+            if (typeof oldValue === 'string' && validStatuses.includes(oldValue)) {
+              // Конвертируем старый формат в новый
+              parsed.skinCompatibility[type] = {
+                status: oldValue,
+                score: oldValue === 'good' ? 75 : oldValue === 'bad' ? 25 : 50,
+              };
+            } else {
+              parsed.skinCompatibility[type] = { status: 'neutral', score: 50 };
+            }
+          } else {
+            // Новый формат - валидируем
+            const item = parsed.skinCompatibility[type];
+            if (!validStatuses.includes(item.status)) {
+              item.status = 'neutral';
+            }
+            // Нормализуем score к 0-100
+            if (typeof item.score !== 'number' || isNaN(item.score)) {
+              item.score = item.status === 'good' ? 75 : item.status === 'bad' ? 25 : 50;
+            } else {
+              item.score = Math.max(0, Math.min(100, Math.round(item.score)));
+            }
+            // Синхронизируем status и score
+            if (item.score >= 70 && item.status !== 'good') {
+              item.status = 'good';
+            } else if (item.score < 40 && item.status !== 'bad') {
+              item.status = 'bad';
+            } else if (item.score >= 40 && item.score < 70 && item.status !== 'neutral') {
+              item.status = 'neutral';
+            }
+          }
+        }
       }
 
       return parsed;
