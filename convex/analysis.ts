@@ -1,12 +1,8 @@
 import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { action } from './_generated/server';
-
-interface CosmeticAnalysis {
-  pros: string[];
-  cons: string[];
-  hazards: 'low' | 'medium' | 'high';
-}
+import { type ProductAnalysisResult, type CosmeticAnalysis } from './types';
+import { CONFIDENCE_THRESHOLD, API_CONFIG } from './constants';
 
 interface ProductResult {
   productId?: string;
@@ -30,10 +26,10 @@ export const analyzeProduct = action({
   },
   handler: async (ctx, args): Promise<ProductResult> => {
     // 1. Распознавание через ИИ
-    const aiResult = (await ctx.runAction(internal.ai_logic.identifyProduct, {
+    const aiResult = await ctx.runAction(internal.ai_logic.identifyProduct, {
       imageBase64: args.imageBase64,
       skinType: args.skinType,
-    })) as any;
+    });
 
     if (!aiResult || aiResult.error) {
       return {
@@ -43,14 +39,10 @@ export const analyzeProduct = action({
       };
     }
 
-    if (typeof aiResult.confidence !== 'number') {
+    if (typeof aiResult.confidence !== 'number' || aiResult.confidence < CONFIDENCE_THRESHOLD) {
       return {
-        error: 'ИИ вернул некорректный результат. Попробуйте переснять фото.',
+        error: 'Не удалось четко распознать продукт. Попробуйте переснять фото.',
       };
-    }
-
-    if (aiResult.confidence < 0.7) {
-      return { error: 'Не удалось четко распознать продукт.' };
     }
 
     const productInfo = aiResult;
@@ -58,7 +50,7 @@ export const analyzeProduct = action({
     // 2. Реальная логика Tavily (Добавляем поиск цен)
     let searchPrice = 'Уточняется';
     try {
-      const searchResponse = await fetch('https://api.tavily.com/search', {
+      const searchResponse = await fetch(API_CONFIG.TAVILY_BASE_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

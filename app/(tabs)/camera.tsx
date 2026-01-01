@@ -1,5 +1,6 @@
 import { api } from '@/convex/_generated/api';
 import { useSkinType } from '@/hooks/useSkinType';
+import { IMAGE_PROCESSING } from '@/constants/thresholds';
 import { useAction } from 'convex/react';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -62,14 +63,16 @@ export default function CameraScreen() {
     try {
       setErrorMessage(null);
       setIsAnalyzing(true);
-      const photo = await cameraRef.current.takePictureAsync({ quality: 0.5 });
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: IMAGE_PROCESSING.QUALITY,
+      });
 
       if (photo) {
         const manipulated = await ImageManipulator.manipulateAsync(
           photo.uri,
-          [{ resize: { width: 800 } }],
+          [{ resize: { width: IMAGE_PROCESSING.MAX_WIDTH } }],
           {
-            compress: 0.7,
+            compress: IMAGE_PROCESSING.COMPRESSION,
             format: ImageManipulator.SaveFormat.JPEG,
             base64: true,
           }
@@ -80,15 +83,15 @@ export default function CameraScreen() {
             imageBase64: manipulated.base64,
             skinType: skinType || undefined,
           });
-          if (!result || (result as any).error || !(result as any).productId) {
+          if (!result || 'error' in result || !('productId' in result)) {
             setErrorMessage(
-              (result as any)?.error ||
+              ('error' in result ? result.error : undefined) ||
                 'Не удалось проанализировать фото. Попробуйте поднести камеру ближе и убрать блики.'
             );
           } else {
             router.push({
               pathname: '/product-result',
-              params: { id: (result as any).productId },
+              params: { id: result.productId },
             });
           }
         } else {

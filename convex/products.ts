@@ -1,6 +1,6 @@
 import { v } from 'convex/values';
-// convex/products.ts
 import { internalMutation, query } from './_generated/server';
+import { SEARCH, VALIDATION } from './constants';
 
 export const saveProduct = internalMutation({
   args: {
@@ -60,14 +60,27 @@ export const findByName = query({
 });
 
 // Поиск продуктов по названию или бренду (частичное совпадение)
+// Note: This implementation loads all products. For better scalability,
+// consider using full-text search or external search engine (Algolia, Typesense)
 export const searchProducts = query({
-  args: { searchQuery: v.string() },
+  args: {
+    searchQuery: v.string(),
+  },
   handler: async (ctx, args) => {
-    const searchQuery = args.searchQuery.trim().toLowerCase();
-    if (!searchQuery || searchQuery.length < 2) return [];
+    // Validate and sanitize input
+    const trimmedQuery = args.searchQuery.trim();
+    if (
+      !trimmedQuery ||
+      trimmedQuery.length < SEARCH.MIN_QUERY_LENGTH ||
+      trimmedQuery.length > VALIDATION.MAX_SEARCH_QUERY_LENGTH
+    ) {
+      return [];
+    }
 
-    // Получаем все продукты и фильтруем на клиенте
-    // Для небольшой базы это эффективно, для большой можно использовать полнотекстовый поиск
+    const searchQuery = trimmedQuery.toLowerCase();
+
+    // Получаем все продукты и фильтруем
+    // TODO: Для большой БД использовать полнотекстовый поиск или внешний движок
     const allProducts = await ctx.db.query('products').collect();
 
     // Фильтруем по названию или бренду (регистронезависимый поиск)
@@ -92,53 +105,14 @@ export const searchProducts = query({
       return a.name.localeCompare(b.name);
     });
 
-    // Возвращаем до 20 результатов
-    return sorted.slice(0, 20);
+    // Возвращаем до MAX_RESULTS результатов
+    return sorted.slice(0, SEARCH.MAX_RESULTS);
   },
 });
 
-// Не забудь импортировать query в начале файла
 export const getById = query({
-  args: { id: v.id('products') }, // или v.string() если у тебя были проблемы с типами
+  args: { id: v.id('products') },
   handler: async (ctx, args) => {
-    const product = await ctx.db.get(args.id);
-    if (!product) return null;
-
-    // Миграция на лету: преобразуем старый формат в новый при чтении
-    if (product.skinTypeCompatibility) {
-      const compatibility = product.skinTypeCompatibility as any;
-      const needsMigration = Object.values(compatibility).some(
-        (val: any) => typeof val === 'string'
-      );
-
-      if (needsMigration) {
-        const validTypes = ['dry', 'oily', 'combination', 'normal', 'sensitive'];
-        const newCompatibility: any = {};
-
-        for (const type of validTypes) {
-          const oldValue = compatibility[type];
-          if (typeof oldValue === 'string') {
-            const status = oldValue;
-            const score = status === 'good' ? 75 : status === 'bad' ? 25 : 50;
-            newCompatibility[type] = { status, score };
-            
-            // Сохраняем миграцию обратно в БД асинхронно (не блокируем ответ)
-            // Можно запустить миграцию через action
-          } else if (oldValue && typeof oldValue === 'object') {
-            newCompatibility[type] = oldValue;
-          } else {
-            newCompatibility[type] = { status: 'neutral', score: 50 };
-          }
-        }
-
-        // Возвращаем мигрированные данные
-        return {
-          ...product,
-          skinTypeCompatibility: newCompatibility,
-        };
-      }
-    }
-
-    return product;
+    return await ctx.db.get(args.id);
   },
 });

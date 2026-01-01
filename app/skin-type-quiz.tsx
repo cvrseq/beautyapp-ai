@@ -8,17 +8,12 @@ import {
   View,
 } from 'react-native';
 import { useSkinType } from '@/hooks/useSkinType';
+import { getSkinTypeOptions, SkinType } from '@/types/skinType';
 
-const SKIN_TYPES = [
-  { id: 'dry', label: 'Сухая', icon: 'water-outline', desc: 'Чувство стянутости, шелушение' },
-  { id: 'oily', label: 'Жирная', icon: 'flash-outline', desc: 'Блеск, расширенные поры' },
-  { id: 'combination', label: 'Комбинированная', icon: 'layers-outline', desc: 'Сухость на щеках, жирность в Т-зоне' },
-  { id: 'normal', label: 'Нормальная', icon: 'checkmark-circle-outline', desc: 'Сбалансированная, без проблем' },
-  { id: 'sensitive', label: 'Чувствительная', icon: 'heart-outline', desc: 'Покраснения, раздражения' },
-];
+const SKIN_TYPES = getSkinTypeOptions();
 
 export default function SkinTypeQuizScreen() {
-  const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [selectedType, setSelectedType] = useState<SkinType | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const { saveSkinType } = useSkinType();
 
@@ -27,7 +22,7 @@ export default function SkinTypeQuizScreen() {
 
     try {
       setIsSaving(true);
-      await saveSkinType(selectedType as any);
+      await saveSkinType(selectedType);
       
       // Возвращаемся назад или на главный экран
       if (router.canGoBack()) {
@@ -77,7 +72,7 @@ export default function SkinTypeQuizScreen() {
                   }`}
                 >
                   <Ionicons
-                    name={type.icon as any}
+                    name={type.icon as keyof typeof Ionicons.glyphMap}
                     size={24}
                     color={isSelected ? 'white' : '#64748b'}
                   />

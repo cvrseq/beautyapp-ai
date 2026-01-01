@@ -1,4 +1,5 @@
 import { useSkinType } from '@/hooks/useSkinType';
+import { SKIN_TYPE_SHORT_LABELS } from '@/types/skinType';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -38,7 +39,7 @@ export default function HomeScreen() {
               <TouchableOpacity
                 onPress={() => {
                   setShowSkinTypePrompt(false);
-                  router.push('/skin-type-quiz' as any);
+                  router.push('/skin-type-quiz');
                 }}
                 className="bg-yellow-600 px-4 py-2 rounded-xl"
               >
@@ -51,18 +52,13 @@ export default function HomeScreen() {
         {/* Кнопка изменения типа кожи (если уже настроен) */}
         {skinType && !showSkinTypePrompt && (
           <TouchableOpacity
-            onPress={() => router.push('/skin-type-quiz' as any)}
+            onPress={() => router.push('/skin-type-quiz')}
             className="mt-6 bg-white border border-slate-200 p-3 rounded-xl flex-row items-center justify-between"
           >
             <View className="flex-row items-center">
               <Ionicons name="person-circle-outline" size={20} color="#64748b" />
               <Text className="text-slate-700 text-sm ml-2">
-                Тип кожи: {
-                  skinType === 'dry' ? 'Сухая' :
-                  skinType === 'oily' ? 'Жирная' :
-                  skinType === 'combination' ? 'Комбинированная' :
-                  skinType === 'normal' ? 'Нормальная' : 'Чувствительная'
-                }
+                Тип кожи: {skinType ? SKIN_TYPE_SHORT_LABELS[skinType] : ''}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#64748b" />
@@ -86,7 +82,7 @@ export default function HomeScreen() {
 
           {/* Кнопка ПОИСКА */}
           <TouchableOpacity
-            onPress={() => router.push('/search' as any)}
+            onPress={() => router.push('/search')}
             className="bg-white border-2 border-slate-200 p-6 rounded-3xl flex-row items-center justify-between active:bg-slate-50"
           >
             <View>

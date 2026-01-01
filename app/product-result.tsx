@@ -1,5 +1,9 @@
+import { SKIN_COMPATIBILITY_SCORES } from '@/constants/thresholds';
 import { api } from '@/convex/_generated/api';
+import { Id } from '@/convex/_generated/dataModel';
 import { useSkinType } from '@/hooks/useSkinType';
+import { CosmeticAnalysis, Ingredient, IngredientStatus } from '@/types/products';
+import { SKIN_TYPE_LABELS } from '@/types/skinType';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from 'convex/react';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -16,8 +20,8 @@ export default function ProductResultScreen() {
   const { id } = useLocalSearchParams();
   const { skinType } = useSkinType();
 
-  // Получаем данные. id прилетает строкой, приводим к any для Convex
-  const product = useQuery(api.products.getById, { id: id as any });
+  // Получаем данные
+  const product = useQuery(api.products.getById, id ? { id: id as Id<'products'> } : 'skip');
 
   if (!id) {
     return (
@@ -51,19 +55,25 @@ export default function ProductResultScreen() {
   }
 
   // 2. Парсим JSON с анализом
-  let analysis: any = { ingredients: [] };
+  let analysis: CosmeticAnalysis = { pros: [], cons: [], hazards: 'low', ingredients: [] };
   try {
-    analysis =
-      typeof product.ingredientsAnalysis === 'string'
-        ? JSON.parse(product.ingredientsAnalysis)
-        : product.ingredientsAnalysis;
+    const parsed = typeof product.ingredientsAnalysis === 'string'
+      ? JSON.parse(product.ingredientsAnalysis)
+      : product.ingredientsAnalysis;
+    if (parsed && typeof parsed === 'object') {
+      analysis = {
+        pros: Array.isArray(parsed.pros) ? parsed.pros : [],
+        cons: Array.isArray(parsed.cons) ? parsed.cons : [],
+        hazards: parsed.hazards || 'low',
+        ingredients: Array.isArray(parsed.ingredients) ? parsed.ingredients : [],
+      };
+    }
   } catch (e) {
     console.error('Failed to parse ingredientsAnalysis', e);
-    analysis = { ingredients: [] };
   }
 
   // Функция для цветов
-  const getStatusStyle = (status: string) => {
+  const getStatusStyle = (status: IngredientStatus) => {
     switch (status) {
       case 'green':
         return {
@@ -115,16 +125,8 @@ export default function ProductResultScreen() {
             const status = compatibility.status || 'neutral';
             const score = typeof compatibility.score === 'number' ? compatibility.score : 50;
             
-            const skinTypeLabels: Record<'dry' | 'oily' | 'combination' | 'normal' | 'sensitive', string> = {
-              dry: 'сухой',
-              oily: 'жирной',
-              combination: 'комбинированной',
-              normal: 'нормальной',
-              sensitive: 'чувствительной',
-            };
-            
             // Определяем стиль в зависимости от статуса
-            if (status === 'bad' || score < 40) {
+            if (status === 'bad' || score < SKIN_COMPATIBILITY_SCORES.NEUTRAL_MIN) {
               return (
                 <View className="bg-red-50 border-2 border-red-200 p-4 rounded-2xl mb-6">
                   <View className="flex-row items-start mb-2">
@@ -132,7 +134,7 @@ export default function ProductResultScreen() {
                     <View className="flex-1">
                       <View className="flex-row items-center justify-between mb-1">
                         <Text className="text-red-800 font-bold text-lg">
-                          Не рекомендуется для {skinTypeLabels[skinType]} кожи
+                          Не рекомендуется для {SKIN_TYPE_LABELS[skinType].toLowerCase()} кожи
                         </Text>
                         <View className="bg-red-200 px-3 py-1 rounded-full">
                           <Text className="text-red-800 font-bold text-sm">{score}%</Text>
@@ -147,7 +149,7 @@ export default function ProductResultScreen() {
                   </View>
                 </View>
               );
-            } else if (status === 'good' || score >= 70) {
+            } else if (status === 'good' || score >= SKIN_COMPATIBILITY_SCORES.GOOD_MIN) {
               return (
                 <View className="bg-green-50 border-2 border-green-200 p-4 rounded-2xl mb-6">
                   <View className="flex-row items-start mb-2">
@@ -155,7 +157,7 @@ export default function ProductResultScreen() {
                     <View className="flex-1">
                       <View className="flex-row items-center justify-between mb-1">
                         <Text className="text-green-800 font-bold text-lg">
-                          Отлично подходит для {skinTypeLabels[skinType]} кожи
+                          Отлично подходит для {SKIN_TYPE_LABELS[skinType].toLowerCase()} кожи
                         </Text>
                         <View className="bg-green-200 px-3 py-1 rounded-full">
                           <Text className="text-green-800 font-bold text-sm">{score}%</Text>
@@ -178,7 +180,7 @@ export default function ProductResultScreen() {
                     <View className="flex-1">
                       <View className="flex-row items-center justify-between mb-1">
                         <Text className="text-yellow-800 font-bold text-lg">
-                          Нейтрально для {skinTypeLabels[skinType]} кожи
+                          Нейтрально для {SKIN_TYPE_LABELS[skinType].toLowerCase()} кожи
                         </Text>
                         <View className="bg-yellow-200 px-3 py-1 rounded-full">
                           <Text className="text-yellow-800 font-bold text-sm">{score}%</Text>
@@ -201,7 +203,7 @@ export default function ProductResultScreen() {
         </Text>
 
         {/* Список ингредиентов */}
-        {analysis?.ingredients?.map((item: any, index: number) => {
+        {analysis.ingredients.map((item: Ingredient, index: number) => {
           const style = getStatusStyle(item.status);
           return (
             <View
@@ -209,7 +211,7 @@ export default function ProductResultScreen() {
               className={`flex-row p-4 mb-3 rounded-2xl ${style.bg} items-start`}
             >
               <Ionicons
-                name={style.icon as any}
+                name={style.icon as keyof typeof Ionicons.glyphMap}
                 size={24}
                 className={style.text}
                 style={{ marginRight: 12, marginTop: 2 }}

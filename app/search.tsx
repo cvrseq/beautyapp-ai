@@ -1,4 +1,5 @@
 import { api } from '@/convex/_generated/api';
+import { SEARCH } from '@/constants/thresholds';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from 'convex/react';
 import { router } from 'expo-router';
@@ -16,8 +17,8 @@ export default function SearchScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   
-  // Используем поиск только когда запрос не пустой и длина >= 2
-  const shouldSearch = debouncedQuery.trim().length >= 2;
+  // Используем поиск только когда запрос не пустой и длина >= MIN_QUERY_LENGTH
+  const shouldSearch = debouncedQuery.trim().length >= SEARCH.MIN_QUERY_LENGTH;
   const products = useQuery(
     api.products.searchProducts,
     shouldSearch ? { searchQuery: debouncedQuery } : 'skip'
@@ -80,7 +81,7 @@ export default function SearchScreen() {
               Начни вводить название{'\n'}или бренд продукта
             </Text>
             <Text className="text-slate-400 text-sm mt-2 text-center">
-              Нужно минимум 2 символа
+              Нужно минимум {SEARCH.MIN_QUERY_LENGTH} символа
             </Text>
           </View>
         ) : products === undefined ? (

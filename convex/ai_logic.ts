@@ -1,6 +1,18 @@
 import { v } from 'convex/values';
-// convex/ai_logic.ts
 import { internalAction } from './_generated/server';
+import { API_CONFIG, DEFAULT_SKIN_COMPATIBILITY_SCORES, SKIN_COMPATIBILITY_SCORES, VALIDATION } from './constants';
+import {
+    SKIN_COMPATIBILITY_STATUSES,
+    SKIN_TYPES,
+    type SkinCompatibility,
+    type SkinCompatibilityItem,
+    type SkinCompatibilityStatus,
+} from './types';
+
+// Helper function to check if string is a valid status
+function isValidStatus(value: string): value is SkinCompatibilityStatus {
+  return SKIN_COMPATIBILITY_STATUSES.includes(value as SkinCompatibilityStatus);
+}
 
 export const identifyProduct = internalAction({
   args: { 
@@ -23,19 +35,23 @@ export const identifyProduct = internalAction({
     }
 
     try {
-      // Используем OpenRouter с бесплатной моделью Meta Llama Vision.
-      const model = 'openai/gpt-4o-mini';
+      // Validate base64 size
+      if (args.imageBase64.length > VALIDATION.MAX_BASE64_SIZE) {
+        return {
+          error: 'Изображение слишком большое. Пожалуйста, используйте изображение меньшего размера.',
+        };
+      }
 
-      const response = await fetch('https://api.vsegpt.ru/v1/chat/completions', {
+      const response = await fetch(API_CONFIG.VSEGPT_BASE_URL, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${API_KEY}`, // Ключ OpenRouter
+          Authorization: `Bearer ${API_KEY}`,
           'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://beauty-ai.app',
-          'X-Title': 'Beauty AI',
+          'HTTP-Referer': API_CONFIG.HTTP_REFERER,
+          'X-Title': API_CONFIG.X_TITLE,
         },
         body: JSON.stringify({
-          model,
+          model: API_CONFIG.MODEL,
           messages: [
             {
               role: 'user',
@@ -51,7 +67,7 @@ export const identifyProduct = internalAction({
                     'Верни ТОЛЬКО чистый JSON (без markdown ```json) в формате:',
                     '{brand, name, confidence, analysis: {pros, cons, hazards, ingredients: [{name, status, desc}]}, skinCompatibility: {dry: {status: "good"|"bad"|"neutral", score: число от 0 до 100}, oily: {status, score}, combination: {status, score}, normal: {status, score}, sensitive: {status, score}}}.',
                     'В skinCompatibility для каждого типа кожи укажи:',
-                    '- status: "good" (хорошо подходит, score >= 70), "neutral" (нейтрально, 40-69), "bad" (не подходит, < 40)',
+                    `- status: "good" (хорошо подходит, score >= ${SKIN_COMPATIBILITY_SCORES.GOOD_MIN}), "neutral" (нейтрально, ${SKIN_COMPATIBILITY_SCORES.NEUTRAL_MIN}-${SKIN_COMPATIBILITY_SCORES.GOOD_MIN - 1}), "bad" (не подходит, < ${SKIN_COMPATIBILITY_SCORES.NEUTRAL_MIN})`,
                     '- score: число от 0 до 100, где 100 = идеально подходит, 0 = абсолютно не подходит',
                     'Оценивай на основе состава: ингредиенты, которые подходят для данного типа кожи повышают score, неподходящие - понижают.',
                   ].filter(Boolean).join(' '),
@@ -128,48 +144,55 @@ export const identifyProduct = internalAction({
       }
 
       // Валидация и нормализация skinCompatibility
-      const validTypes = ['dry', 'oily', 'combination', 'normal', 'sensitive'];
-      const validStatuses = ['good', 'bad', 'neutral'];
-      
       if (!parsed.skinCompatibility) {
         // Если нет skinCompatibility, создаём нейтральные значения
-        parsed.skinCompatibility = {};
-        for (const type of validTypes) {
-          parsed.skinCompatibility[type] = { status: 'neutral', score: 50 };
+        parsed.skinCompatibility = {} as SkinCompatibility;
+        for (const type of SKIN_TYPES) {
+          parsed.skinCompatibility[type] = {
+            status: 'neutral',
+            score: DEFAULT_SKIN_COMPATIBILITY_SCORES.neutral,
+          };
         }
       } else {
         // Валидируем и нормализуем существующие данные
-        for (const type of validTypes) {
+        for (const type of SKIN_TYPES) {
           if (!parsed.skinCompatibility[type] || typeof parsed.skinCompatibility[type] !== 'object') {
             // Старый формат или отсутствует - преобразуем
             const oldValue = parsed.skinCompatibility[type];
-            if (typeof oldValue === 'string' && validStatuses.includes(oldValue)) {
+            if (typeof oldValue === 'string' && isValidStatus(oldValue)) {
               // Конвертируем старый формат в новый
               parsed.skinCompatibility[type] = {
                 status: oldValue,
-                score: oldValue === 'good' ? 75 : oldValue === 'bad' ? 25 : 50,
+                score: DEFAULT_SKIN_COMPATIBILITY_SCORES[oldValue],
               };
             } else {
-              parsed.skinCompatibility[type] = { status: 'neutral', score: 50 };
+              parsed.skinCompatibility[type] = {
+                status: 'neutral',
+                score: DEFAULT_SKIN_COMPATIBILITY_SCORES.neutral,
+              };
             }
           } else {
             // Новый формат - валидируем
-            const item = parsed.skinCompatibility[type];
-            if (!validStatuses.includes(item.status)) {
+            const item = parsed.skinCompatibility[type] as SkinCompatibilityItem;
+            if (!isValidStatus(item.status)) {
               item.status = 'neutral';
             }
             // Нормализуем score к 0-100
             if (typeof item.score !== 'number' || isNaN(item.score)) {
-              item.score = item.status === 'good' ? 75 : item.status === 'bad' ? 25 : 50;
+              item.score = DEFAULT_SKIN_COMPATIBILITY_SCORES[item.status];
             } else {
               item.score = Math.max(0, Math.min(100, Math.round(item.score)));
             }
             // Синхронизируем status и score
-            if (item.score >= 70 && item.status !== 'good') {
+            if (item.score >= SKIN_COMPATIBILITY_SCORES.GOOD_MIN && item.status !== 'good') {
               item.status = 'good';
-            } else if (item.score < 40 && item.status !== 'bad') {
+            } else if (item.score < SKIN_COMPATIBILITY_SCORES.NEUTRAL_MIN && item.status !== 'bad') {
               item.status = 'bad';
-            } else if (item.score >= 40 && item.score < 70 && item.status !== 'neutral') {
+            } else if (
+              item.score >= SKIN_COMPATIBILITY_SCORES.NEUTRAL_MIN &&
+              item.score < SKIN_COMPATIBILITY_SCORES.GOOD_MIN &&
+              item.status !== 'neutral'
+            ) {
               item.status = 'neutral';
             }
           }
