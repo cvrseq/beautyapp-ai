@@ -28,6 +28,24 @@ export const DEFAULT_SKIN_COMPATIBILITY_SCORES = {
 } as const;
 
 /**
+ * Hair compatibility score thresholds
+ */
+export const HAIR_COMPATIBILITY_SCORES = {
+  GOOD_MIN: 70, // Score >= 70 means "good"
+  NEUTRAL_MIN: 40, // Score 40-69 means "neutral"
+  BAD_MAX: 39, // Score < 40 means "bad"
+} as const;
+
+/**
+ * Default hair compatibility scores by status
+ */
+export const DEFAULT_HAIR_COMPATIBILITY_SCORES = {
+  good: 75,
+  neutral: 50,
+  bad: 25,
+} as const;
+
+/**
  * Image processing constants
  */
 export const IMAGE_PROCESSING = {

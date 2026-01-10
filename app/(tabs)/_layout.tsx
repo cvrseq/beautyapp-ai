@@ -1,21 +1,40 @@
 import { Tabs } from "expo-router";
-import { Ionicons } from "@expo/vector-icons"; // Стандартные иконки в Expo
+import { Ionicons } from "@expo/vector-icons";
+import { Platform } from "react-native";
 
 export default function TabLayout() {
   return (
-    <Tabs screenOptions={{ tabBarActiveTintColor: '#FF69B4' }}> 
+    <Tabs
+      screenOptions={{
+        tabBarActiveTintColor: '#000',
+        tabBarInactiveTintColor: '#8E8E93',
+        tabBarStyle: {
+          display: 'none',
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '500',
+          fontFamily: Platform.select({
+            ios: 'System',
+            android: undefined,
+            default: undefined,
+          }),
+        },
+        headerShown: false,
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Главная',
-          tabBarIcon: ({ color }) => <Ionicons name="home" size={28} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size || 24} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="camera" // Это будет наш будущий экран камеры
+        name="camera"
         options={{
           title: 'Сканер',
-          tabBarIcon: ({ color }) => <Ionicons name="camera" size={28} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="scan" size={size || 24} color={color} />,
         }}
       />
     </Tabs>

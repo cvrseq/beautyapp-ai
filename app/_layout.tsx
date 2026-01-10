@@ -10,7 +10,9 @@ export default function RootLayout() {
         {/* Скрываем заголовок для группы табов, так как у них будут свои заголовки */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="skin-type-quiz" options={{ headerShown: false }} />
+        <Stack.Screen name="hair-type-quiz" options={{ headerShown: false }} />
         <Stack.Screen name="search" options={{ headerShown: false }} />
+        <Stack.Screen name="product-result" options={{ headerShown: false }} />
       </Stack>
     </ConvexProvider>
   );

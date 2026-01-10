@@ -22,6 +22,16 @@ export const analyzeProduct = action({
       v.literal('combination'),
       v.literal('normal'),
       v.literal('sensitive')
+    )),
+    hairType: v.optional(v.union(
+      v.literal('straight'),
+      v.literal('wavy'),
+      v.literal('curly'),
+      v.literal('coily'),
+      v.literal('oily'),
+      v.literal('dry'),
+      v.literal('normal'),
+      v.literal('damaged')
     ))
   },
   handler: async (ctx, args): Promise<ProductResult> => {
@@ -29,6 +39,7 @@ export const analyzeProduct = action({
     const aiResult = await ctx.runAction(internal.ai_logic.identifyProduct, {
       imageBase64: args.imageBase64,
       skinType: args.skinType,
+      hairType: args.hairType,
     });
 
     if (!aiResult || aiResult.error) {
@@ -87,7 +98,9 @@ export const analyzeProduct = action({
         analysis: productInfo.analysis,
         price: searchPrice,
         storageId: storageId,
+        category: productInfo.category || 'unknown',
         skinCompatibility: productInfo.skinCompatibility,
+        hairCompatibility: productInfo.hairCompatibility,
       }
     );
 

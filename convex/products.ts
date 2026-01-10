@@ -9,28 +9,14 @@ export const saveProduct = internalMutation({
     analysis: v.any(), // или опиши структуру подробнее
     price: v.string(),
     storageId: v.string(),
-    skinCompatibility: v.optional(v.object({
-      dry: v.object({
-        status: v.string(),
-        score: v.number(),
-      }),
-      oily: v.object({
-        status: v.string(),
-        score: v.number(),
-      }),
-      combination: v.object({
-        status: v.string(),
-        score: v.number(),
-      }),
-      normal: v.object({
-        status: v.string(),
-        score: v.number(),
-      }),
-      sensitive: v.object({
-        status: v.string(),
-        score: v.number(),
-      }),
-    })),
+    category: v.optional(v.union(
+      v.literal('skin'),
+      v.literal('hair'),
+      v.literal('mixed'),
+      v.literal('unknown')
+    )),
+    skinCompatibility: v.optional(v.any()),
+    hairCompatibility: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert('products', {
@@ -43,7 +29,9 @@ export const saveProduct = internalMutation({
       description: '',
       pros: args.analysis.pros || [],
       cons: args.analysis.cons || [],
+      category: args.category || 'unknown',
       skinTypeCompatibility: args.skinCompatibility || undefined,
+      hairTypeCompatibility: args.hairCompatibility || undefined,
     });
   },
 });

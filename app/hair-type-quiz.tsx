@@ -8,33 +8,33 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSkinType } from '@/hooks/useSkinType';
-import { getSkinTypeOptions, SkinType } from '@/types/skinType';
+import { useHairType } from '@/hooks/useHairType';
+import { getHairTypeOptions, HairType } from '@/types/hairType';
 import { APPLE_TEXT_STYLES } from '@/constants/fonts';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronArrow } from '@/components/ChevronArrow';
 
-const SKIN_TYPES = getSkinTypeOptions();
+const HAIR_TYPES = getHairTypeOptions();
 
-export default function SkinTypeQuizScreen() {
-  const [selectedType, setSelectedType] = useState<SkinType | null>(null);
+export default function HairTypeQuizScreen() {
+  const [selectedType, setSelectedType] = useState<HairType | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const { skinType, saveSkinType, isLoading } = useSkinType();
+  const { hairType, saveHairType, isLoading } = useHairType();
 
   useEffect(() => {
-    if (!isLoading && skinType) {
-      setSelectedType(skinType);
+    if (!isLoading && hairType) {
+      setSelectedType(hairType);
     }
-  }, [skinType, isLoading]);
+  }, [hairType, isLoading]);
 
-  const handleSelect = async (type: SkinType) => {
+  const handleSelect = async (type: HairType) => {
     if (isSaving) return;
     
     setSelectedType(type);
     
     try {
       setIsSaving(true);
-      await saveSkinType(type);
+      await saveHairType(type);
       
       // Возвращаемся назад через небольшую задержку для лучшего UX
       setTimeout(() => {
@@ -45,8 +45,8 @@ export default function SkinTypeQuizScreen() {
         }
       }, 300);
     } catch (error) {
-      console.error('Ошибка сохранения типа кожи:', error);
-      alert('Не удалось сохранить тип кожи. Попробуйте ещё раз.');
+      console.error('Ошибка сохранения типа волос:', error);
+      alert('Не удалось сохранить тип волос. Попробуйте ещё раз.');
     } finally {
       setIsSaving(false);
     }
@@ -77,17 +77,17 @@ export default function SkinTypeQuizScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={[APPLE_TEXT_STYLES.largeTitle, styles.title]}>
-          Тип кожи
+          Тип волос
         </Text>
       </View>
 
       {/* Content */}
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Skin Types Section */}
+        {/* Hair Types Section */}
         <View style={styles.section}>
-          {SKIN_TYPES.map((type, index) => {
+          {HAIR_TYPES.map((type, index) => {
             const isSelected = selectedType === type.id;
-            const isLast = index === SKIN_TYPES.length - 1;
+            const isLast = index === HAIR_TYPES.length - 1;
             
             return (
               <TouchableOpacity
@@ -113,7 +113,7 @@ export default function SkinTypeQuizScreen() {
         {/* Description Section */}
         <View style={styles.descriptionSection}>
           <Text style={[APPLE_TEXT_STYLES.subhead, styles.descriptionText]}>
-            Выберите тип кожи, чтобы мы могли подобрать для вас идеальную косметику и предупредить о неподходящих продуктах.
+            Выберите тип волос, чтобы мы могли подобрать для вас идеальную косметику для волос и предупредить о неподходящих продуктах.
           </Text>
         </View>
       </ScrollView>

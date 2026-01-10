@@ -16,6 +16,19 @@ export interface SkinCompatibilityItem {
 
 export type SkinCompatibility = Record<SkinType, SkinCompatibilityItem>;
 
+export const HAIR_TYPES = ['straight', 'wavy', 'curly', 'coily', 'oily', 'dry', 'normal', 'damaged'] as const;
+export type HairType = (typeof HAIR_TYPES)[number];
+
+export const HAIR_COMPATIBILITY_STATUSES = ['good', 'bad', 'neutral'] as const;
+export type HairCompatibilityStatus = (typeof HAIR_COMPATIBILITY_STATUSES)[number];
+
+export interface HairCompatibilityItem {
+  status: HairCompatibilityStatus;
+  score: number; // 0-100
+}
+
+export type HairCompatibility = Record<HairType, HairCompatibilityItem>;
+
 export interface Ingredient {
   name: string;
   status: 'green' | 'yellow' | 'red';
@@ -29,11 +42,15 @@ export interface CosmeticAnalysis {
   ingredients: Ingredient[];
 }
 
+export type ProductCategory = 'skin' | 'hair' | 'mixed' | 'unknown';
+
 export interface ProductAnalysisResult {
   brand: string;
   name: string;
   confidence: number;
   analysis: CosmeticAnalysis;
-  skinCompatibility: SkinCompatibility;
+  category: ProductCategory;
+  skinCompatibility?: SkinCompatibility;
+  hairCompatibility?: HairCompatibility;
 }
 

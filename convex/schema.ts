@@ -13,7 +13,14 @@ export default defineSchema({
     ingredientsAnalysis: v.string(),
     priceEstimate: v.string(),
     imageUrl: v.string(), // Ссылка на фото в хранилище Convex
+    category: v.optional(v.union(
+      v.literal('skin'),
+      v.literal('hair'),
+      v.literal('mixed'),
+      v.literal('unknown')
+    )),
     skinTypeCompatibility: v.optional(v.any()), // Временно any для миграции старых данных
+    hairTypeCompatibility: v.optional(v.any()), // Совместимость с типом волос
   })
     .index('by_name', ['name']) // Индекс для быстрого поиска по названию
     .index('by_brand', ['brand']), // Индекс для поиска по бренду

@@ -1,9 +1,12 @@
 import { api } from '@/convex/_generated/api';
 import { useSkinType } from '@/hooks/useSkinType';
+import { useHairType } from '@/hooks/useHairType';
 import { IMAGE_PROCESSING } from '@/constants/thresholds';
+import { APPLE_TEXT_STYLES } from '@/constants/fonts';
 import { useAction } from 'convex/react';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImageManipulator from 'expo-image-manipulator';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -13,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function CameraScreen() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -21,6 +25,7 @@ export default function CameraScreen() {
   const cameraRef = useRef<CameraView>(null);
   const analyze = useAction(api.analysis.analyzeProduct);
   const { skinType } = useSkinType();
+  const { hairType } = useHairType();
 
   // Принудительно запрашиваем права
   useEffect(() => {
@@ -40,18 +45,54 @@ export default function CameraScreen() {
             justifyContent: 'center',
             alignItems: 'center',
             backgroundColor: 'white',
+            paddingHorizontal: 24,
           },
         ]}
       >
-        <Text style={{ textAlign: 'center', marginBottom: 20, fontSize: 18 }}>
-          Нужен доступ к камере 📸
-        </Text>
+        <View style={{ alignItems: 'center', marginBottom: 32 }}>
+          <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: '#F2F2F7', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
+            <Ionicons name="camera-outline" size={40} color="#000" />
+          </View>
+          <Text style={[APPLE_TEXT_STYLES.title3, { textAlign: 'center', color: '#000', marginBottom: 8, maxWidth: '100%' }]} numberOfLines={2}>
+            Нужен доступ к камере
+          </Text>
+          <Text style={[APPLE_TEXT_STYLES.callout, { textAlign: 'center', color: '#8E8E93', maxWidth: '100%' }]} numberOfLines={3}>
+            Чтобы сканировать состав продуктов, разрешите доступ к камере
+          </Text>
+        </View>
         <TouchableOpacity
           onPress={requestPermission}
-          style={{ backgroundColor: '#EC4899', padding: 15, borderRadius: 30 }}
+          style={{
+            backgroundColor: '#000',
+            paddingVertical: 16,
+            paddingHorizontal: 32,
+            borderRadius: 12,
+            width: '100%',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.15,
+            shadowRadius: 8,
+            marginBottom: 16,
+          }}
         >
-          <Text style={{ color: 'white', fontWeight: 'bold' }}>
-            Дать разрешение
+          <Text style={[APPLE_TEXT_STYLES.headline, { color: 'white', textAlign: 'center' }]}>
+            Разрешить доступ
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => router.push('/(tabs)/')}
+          style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.1)',
+            paddingVertical: 16,
+            paddingHorizontal: 32,
+            borderRadius: 12,
+            width: '100%',
+            borderWidth: 1,
+            borderColor: 'rgba(0, 0, 0, 0.1)',
+          }}
+        >
+          <Text style={[APPLE_TEXT_STYLES.headline, { color: '#000', textAlign: 'center' }]}>
+            Назад
           </Text>
         </TouchableOpacity>
       </View>
@@ -82,6 +123,7 @@ export default function CameraScreen() {
           const result = await analyze({ 
             imageBase64: manipulated.base64,
             skinType: skinType || undefined,
+            hairType: hairType || undefined,
           });
           if (!result || 'error' in result || !('productId' in result)) {
             setErrorMessage(
@@ -113,19 +155,37 @@ export default function CameraScreen() {
       {/* ВАЖНО: Используем style={{ flex: 1 }} вместо className */}
       <CameraView ref={cameraRef} style={styles.camera} facing="back" />
 
+      {/* Кнопка назад */}
+      <SafeAreaView style={styles.topSafeArea} edges={['top']}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.push('/(tabs)/')}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="chevron-back" size={28} color="white" />
+        </TouchableOpacity>
+      </SafeAreaView>
+
       {/* Интерфейс поверх камеры */}
       <View style={styles.overlay}>
         {errorMessage && !isAnalyzing && (
           <View style={styles.errorBox}>
-            <Text style={styles.errorTitle}>Не получилось 😔</Text>
-            <Text style={styles.errorText}>{errorMessage}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255, 255, 255, 0.2)', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <Ionicons name="alert-circle" size={22} color="white" />
+              </View>
+              <View style={{ flex: 1, flexShrink: 1 }}>
+                <Text style={[APPLE_TEXT_STYLES.headline, { color: 'white', marginBottom: 6 }]} numberOfLines={1}>Не получилось</Text>
+                <Text style={[APPLE_TEXT_STYLES.subhead, { color: 'rgba(255, 255, 255, 0.9)', flexShrink: 1 }]} numberOfLines={3}>{errorMessage}</Text>
+              </View>
+            </View>
           </View>
         )}
 
         {isAnalyzing ? (
           <View style={styles.loadingBox}>
-            <ActivityIndicator size="large" color="#FF69B4" />
-            <Text style={{ marginTop: 10, fontWeight: 'bold' }}>
+            <ActivityIndicator size="large" color="#000" />
+            <Text style={[APPLE_TEXT_STYLES.headline, { marginTop: 16, color: '#000' }]}>
               ИИ изучает состав...
             </Text>
           </View>
@@ -133,6 +193,7 @@ export default function CameraScreen() {
           <TouchableOpacity
             onPress={takeAndAnalyzePhoto}
             style={styles.captureButton}
+            activeOpacity={0.8}
           >
             <View style={styles.innerButton} />
           </TouchableOpacity>
@@ -160,45 +221,72 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: 'center',
     justifyContent: 'flex-end',
+    paddingHorizontal: 24,
   },
   loadingBox: {
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    padding: 20,
-    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    padding: 24,
+    borderRadius: 16,
     alignItems: 'center',
+    minWidth: 200,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
   },
   errorBox: {
-    backgroundColor: 'rgba(248, 113, 113, 0.95)', // красный, но мягкий
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
     paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 18,
-    marginBottom: 12,
-    maxWidth: '90%',
-  },
-  errorTitle: {
-    color: 'white',
-    fontWeight: 'bold',
-    marginBottom: 4,
-    fontSize: 14,
-  },
-  errorText: {
-    color: 'white',
-    fontSize: 13,
+    paddingVertical: 16,
+    borderRadius: 16,
+    marginBottom: 16,
+    maxWidth: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
   },
   captureButton: {
     width: 80,
     height: 80,
     borderRadius: 40,
     backgroundColor: 'white',
-    borderWidth: 6,
-    borderColor: '#FBCFE8', // pink-200
+    borderWidth: 4,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
   },
   innerButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#EC4899', // pink-500
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#000',
+  },
+  topSafeArea: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 16,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
 });

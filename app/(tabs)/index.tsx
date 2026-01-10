@@ -1,113 +1,299 @@
+import { ChevronArrow } from '@/components/ChevronArrow';
+import { APPLE_TEXT_STYLES } from '@/constants/fonts';
+import { useHairType } from '@/hooks/useHairType';
 import { useSkinType } from '@/hooks/useSkinType';
+import { HAIR_TYPE_SHORT_LABELS } from '@/types/hairType';
 import { SKIN_TYPE_SHORT_LABELS } from '@/types/skinType';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
-  const { skinType, isLoading } = useSkinType();
+  const { skinType, isLoading: isLoadingSkin } = useSkinType();
+  const { hairType, isLoading: isLoadingHair } = useHairType();
   const [showSkinTypePrompt, setShowSkinTypePrompt] = useState(false);
+  const [showHairTypePrompt, setShowHairTypePrompt] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && !skinType) {
+    if (!isLoadingSkin && !skinType) {
       setShowSkinTypePrompt(true);
     }
-  }, [skinType, isLoading]);
+  }, [skinType, isLoadingSkin]);
+
+  useEffect(() => {
+    if (!isLoadingHair && !hairType) {
+      setShowHairTypePrompt(true);
+    }
+  }, [hairType, isLoadingHair]);
+
   return (
-    <ScrollView className="flex-1 bg-slate-50">
-      <View className="p-8 pt-20">
-        <Text className="text-sm font-bold text-pink-500 uppercase tracking-widest">
-          Beauty AI Project
-        </Text>
-        <Text className="text-4xl font-extrabold text-slate-900 mt-2">
-          Выбирай лучшее ✨
-        </Text>
-
-        {/* Предупреждение/кнопка для настройки типа кожи */}
-        {showSkinTypePrompt && (
-          <View className="mt-6 bg-yellow-50 border-2 border-yellow-200 p-4 rounded-2xl">
-            <View className="flex-row items-start justify-between">
-              <View className="flex-1 mr-4">
-                <Text className="text-yellow-900 font-bold text-base mb-1">
-                  Расскажи о своём типе кожи
-                </Text>
-                <Text className="text-yellow-800 text-sm leading-5">
-                  Мы подберём идеальную косметику специально для тебя
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => {
-                  setShowSkinTypePrompt(false);
-                  router.push('/skin-type-quiz');
-                }}
-                className="bg-yellow-600 px-4 py-2 rounded-xl"
-              >
-                <Text className="text-white font-bold text-sm">Настроить</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
-        {/* Кнопка изменения типа кожи (если уже настроен) */}
-        {skinType && !showSkinTypePrompt && (
-          <TouchableOpacity
-            onPress={() => router.push('/skin-type-quiz')}
-            className="mt-6 bg-white border border-slate-200 p-3 rounded-xl flex-row items-center justify-between"
-          >
-            <View className="flex-row items-center">
-              <Ionicons name="person-circle-outline" size={20} color="#64748b" />
-              <Text className="text-slate-700 text-sm ml-2">
-                Тип кожи: {skinType ? SKIN_TYPE_SHORT_LABELS[skinType] : ''}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#64748b" />
-          </TouchableOpacity>
-        )}
-
-        <View className="mt-10 space-y-4">
-          {/* Кнопка СКАНЕРА */}
-          <TouchableOpacity
-            onPress={() => router.push('/camera')}
-            className="bg-pink-500 p-6 rounded-3xl shadow-xl flex-row items-center justify-between"
-          >
-            <View>
-              <Text className="text-white text-xl font-bold">Умный сканер</Text>
-              <Text className="text-pink-100 text-sm">
-                Наведи камеру на состав
-              </Text>
-            </View>
-            <Ionicons name="scan-circle" size={40} color="white" />
-          </TouchableOpacity>
-
-          {/* Кнопка ПОИСКА */}
-          <TouchableOpacity
-            onPress={() => router.push('/search')}
-            className="bg-white border-2 border-slate-200 p-6 rounded-3xl flex-row items-center justify-between active:bg-slate-50"
-          >
-            <View>
-              <Text className="text-slate-800 text-xl font-bold">
-                Поиск по названию
-              </Text>
-              <Text className="text-slate-500 text-sm">
-                Введи бренд вручную
-              </Text>
-            </View>
-            <Ionicons name="search" size={32} color="#64748b" />
-          </TouchableOpacity>
-        </View>
-
-        <View className="mt-12">
-          <Text className="text-lg font-bold text-slate-800">
-            Твои последние сканы
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={[APPLE_TEXT_STYLES.largeTitle, styles.title]}>
+            Beauty AI
           </Text>
-          <View className="bg-white p-10 rounded-3xl mt-4 border border-dashed border-slate-300 items-center">
-            <Text className="text-slate-400">
-              Здесь пока пусто. Давай что-нибудь отсканим!
-            </Text>
-          </View>
         </View>
-      </View>
-    </ScrollView>
+
+        {/* Search Bar */}
+        <TouchableOpacity 
+          style={styles.searchBar}
+          onPress={() => router.push('/search')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="search" size={18} color="#8E8E93" style={styles.searchIcon} />
+          <Text style={[APPLE_TEXT_STYLES.body, styles.searchPlaceholder]}>
+            Search
+          </Text>
+          <Ionicons name="mic-outline" size={18} color="#8E8E93" style={styles.micIcon} />
+        </TouchableOpacity>
+
+        {/* Profile Card */}
+        {(skinType || hairType || showSkinTypePrompt || showHairTypePrompt) && (
+          <TouchableOpacity 
+            style={styles.profileCard}
+            onPress={() => {
+              if (showSkinTypePrompt) {
+                router.push('/skin-type-quiz');
+              } else if (showHairTypePrompt) {
+                router.push('/hair-type-quiz');
+              }
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={styles.profileIconContainer}>
+              <View style={styles.profileIconOuter}>
+                <View style={styles.profileIconInner}>
+                  <Ionicons name="person-circle" size={28} color="#007AFF" />
+                </View>
+              </View>
+            </View>
+            <View style={styles.profileContent}>
+              <Text style={[APPLE_TEXT_STYLES.headline, styles.profileTitle]}>
+                Beauty Profile
+              </Text>
+              <Text style={[APPLE_TEXT_STYLES.subhead, styles.profileSubtitle]}>
+                {skinType || hairType 
+                  ? `Настроен профиль: ${skinType ? SKIN_TYPE_SHORT_LABELS[skinType] : ''}${skinType && hairType ? ', ' : ''}${hairType ? HAIR_TYPE_SHORT_LABELS[hairType] : ''}`
+                  : 'Настрой свой профиль для персонализированных рекомендаций'}
+              </Text>
+            </View>
+            <ChevronArrow color="#C7C7CC" size={20} direction="right" />
+          </TouchableOpacity>
+        )}
+
+        {/* Main Actions Section */}
+        <View style={styles.section}>
+          <SettingsItem
+            icon="scan-circle"
+            iconColor="#007AFF"
+            title="Умный сканер"
+            subtitle="Наведи камеру на состав продукта"
+            onPress={() => router.push('/camera')}
+            isLast={false}
+          />
+          <SettingsItem
+            icon="search"
+            iconColor="#8E8E93"
+            title="Поиск по названию"
+            subtitle="Введи бренд вручную"
+            onPress={() => router.push('/search')}
+            isLast={true}
+          />
+        </View>
+
+        {/* Profile Settings Section */}
+        <View style={styles.section}>
+          <SettingsItem
+            icon="person-circle-outline"
+            iconColor="#8E8E93"
+            title="Тип кожи"
+            subtitle={skinType ? SKIN_TYPE_SHORT_LABELS[skinType] : 'Не настроено'}
+            onPress={() => router.push('/skin-type-quiz')}
+            showPrompt={showSkinTypePrompt}
+            isLast={false}
+          />
+          <SettingsItem
+            icon="cut-outline"
+            iconColor="#8E8E93"
+            title="Тип волос"
+            subtitle={hairType ? HAIR_TYPE_SHORT_LABELS[hairType] : 'Не настроено'}
+            onPress={() => router.push('/hair-type-quiz')}
+            showPrompt={showHairTypePrompt}
+            isLast={true}
+          />
+        </View>
+
+        {/* History Section */}
+        <View style={styles.section}>
+          <SettingsItem
+            icon="images-outline"
+            iconColor="#8E8E93"
+            title="История сканов"
+            subtitle="Просмотр сохранённых продуктов"
+            onPress={() => {}}
+            isLast={true}
+          />
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
+
+interface SettingsItemProps {
+  icon: keyof typeof Ionicons.glyphMap;
+  iconColor: string;
+  title: string;
+  subtitle?: string;
+  onPress: () => void;
+  showPrompt?: boolean;
+  isLast?: boolean;
+}
+
+const SettingsItem = ({ icon, iconColor, title, subtitle, onPress, showPrompt, isLast = false }: SettingsItemProps) => {
+  return (
+    <TouchableOpacity
+      style={[styles.settingsItem, isLast && styles.settingsItemLast]}
+      onPress={onPress}
+      activeOpacity={0.6}
+    >
+      <View style={[styles.settingsIcon, showPrompt && styles.settingsIconPrompt]}>
+        <Ionicons name={icon} size={24} color={iconColor} />
+      </View>
+      <View style={styles.settingsContent}>
+        <Text style={[APPLE_TEXT_STYLES.body, styles.settingsTitle]} numberOfLines={1}>
+          {title}
+        </Text>
+        {subtitle && (
+          <Text style={[APPLE_TEXT_STYLES.caption1, styles.settingsSubtitle]} numberOfLines={1}>
+            {subtitle}
+          </Text>
+        )}
+      </View>
+      <ChevronArrow color="#C7C7CC" size={20} direction="right" />
+    </TouchableOpacity>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
+  title: {
+    color: '#000000',
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F2F2F7',
+    borderRadius: 10,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    paddingHorizontal: 12,
+    height: 36,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchPlaceholder: {
+    flex: 1,
+    color: '#8E8E93',
+  },
+  micIcon: {
+    marginLeft: 8,
+  },
+  profileCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    marginHorizontal: 16,
+    marginBottom: 32,
+    padding: 16,
+  },
+  profileIconContainer: {
+    marginRight: 12,
+  },
+  profileIconOuter: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: '#007AFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileIconInner: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#F2F2F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileContent: {
+    flex: 1,
+    marginRight: 8,
+  },
+  profileTitle: {
+    color: '#000000',
+    marginBottom: 4,
+  },
+  profileSubtitle: {
+    color: '#8E8E93',
+  },
+  section: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    marginHorizontal: 16,
+    marginBottom: 32,
+    overflow: 'hidden',
+  },
+  settingsItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#C6C6C8',
+  },
+  settingsItemLast: {
+    borderBottomWidth: 0,
+  },
+  settingsIcon: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  settingsIconPrompt: {
+    backgroundColor: '#F2F2F7',
+    borderRadius: 16,
+  },
+  settingsContent: {
+    flex: 1,
+    marginRight: 8,
+  },
+  settingsTitle: {
+    color: '#000000',
+    marginBottom: 2,
+  },
+  settingsSubtitle: {
+    color: '#8E8E93',
+  },
+});

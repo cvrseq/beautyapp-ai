@@ -17,6 +17,18 @@ export const DEFAULT_SKIN_COMPATIBILITY_SCORES = {
   bad: 25,
 } as const;
 
+export const HAIR_COMPATIBILITY_SCORES = {
+  GOOD_MIN: 70,
+  NEUTRAL_MIN: 40,
+  BAD_MAX: 39,
+} as const;
+
+export const DEFAULT_HAIR_COMPATIBILITY_SCORES = {
+  good: 75,
+  neutral: 50,
+  bad: 25,
+} as const;
+
 export const SEARCH = {
   MIN_QUERY_LENGTH: 2,
   MAX_RESULTS: 20,
