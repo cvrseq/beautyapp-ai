@@ -1,8 +1,8 @@
 import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { action } from './_generated/server';
-import { type ProductAnalysisResult, type CosmeticAnalysis } from './types';
-import { CONFIDENCE_THRESHOLD, API_CONFIG } from './constants';
+import { API_CONFIG, CONFIDENCE_THRESHOLD } from './constants';
+import { type CosmeticAnalysis } from './types';
 
 interface ProductResult {
   productId?: string;

@@ -52,18 +52,11 @@ export default function HomeScreen() {
         </TouchableOpacity>
 
         {/* Profile Card */}
-        {(skinType || hairType || showSkinTypePrompt || showHairTypePrompt) && (
-          <TouchableOpacity 
-            style={styles.profileCard}
-            onPress={() => {
-              if (showSkinTypePrompt) {
-                router.push('/skin-type-quiz');
-              } else if (showHairTypePrompt) {
-                router.push('/hair-type-quiz');
-              }
-            }}
-            activeOpacity={0.7}
-          >
+        <TouchableOpacity 
+          style={styles.profileCard}
+          onPress={() => router.push('/profile')}
+          activeOpacity={0.7}
+        >
             <View style={styles.profileIconContainer}>
               <View style={styles.profileIconOuter}>
                 <View style={styles.profileIconInner}>
@@ -77,13 +70,12 @@ export default function HomeScreen() {
               </Text>
               <Text style={[APPLE_TEXT_STYLES.subhead, styles.profileSubtitle]}>
                 {skinType || hairType 
-                  ? `Настроен профиль: ${skinType ? SKIN_TYPE_SHORT_LABELS[skinType] : ''}${skinType && hairType ? ', ' : ''}${hairType ? HAIR_TYPE_SHORT_LABELS[hairType] : ''}`
+                  ? `${skinType ? SKIN_TYPE_SHORT_LABELS[skinType] : ''}${skinType && hairType ? ', ' : ''}${hairType ? HAIR_TYPE_SHORT_LABELS[hairType] : ''}`
                   : 'Настрой свой профиль для персонализированных рекомендаций'}
               </Text>
             </View>
             <ChevronArrow color="#C7C7CC" size={20} direction="right" />
           </TouchableOpacity>
-        )}
 
         {/* Main Actions Section */}
         <View style={styles.section}>

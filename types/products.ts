@@ -2,7 +2,7 @@
  * Product and analysis type definitions
  */
 
-import { SkinCompatibility, SkinType } from './skinType';
+import { SkinCompatibility } from './skinType';
 
 /**
  * Ingredient status in analysis

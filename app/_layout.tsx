@@ -13,6 +13,7 @@ export default function RootLayout() {
         <Stack.Screen name="hair-type-quiz" options={{ headerShown: false }} />
         <Stack.Screen name="search" options={{ headerShown: false }} />
         <Stack.Screen name="product-result" options={{ headerShown: false }} />
+        <Stack.Screen name="profile" options={{ headerShown: false }} />
       </Stack>
     </ConvexProvider>
   );
