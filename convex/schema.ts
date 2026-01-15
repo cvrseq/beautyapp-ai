@@ -23,5 +23,6 @@ export default defineSchema({
     hairTypeCompatibility: v.optional(v.any()), // Совместимость с типом волос
   })
     .index('by_name', ['name']) // Индекс для быстрого поиска по названию
-    .index('by_brand', ['brand']), // Индекс для поиска по бренду
+    .index('by_brand', ['brand']) // Индекс для поиска по бренду
+    .index('by_brand_name', ['brand', 'name']), // Составной индекс для поиска по brand + name (кэширование)
 });

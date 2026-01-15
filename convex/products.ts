@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import { internalMutation, query } from './_generated/server';
+import { internalMutation, internalQuery, query } from './_generated/server';
 import { SEARCH, VALIDATION } from './constants';
 
 export const saveProduct = internalMutation({
@@ -44,6 +44,55 @@ export const findByName = query({
       .query('products')
       .withIndex('by_name', (q) => q.eq('name', args.name))
       .first();
+  },
+});
+
+// Поиск продукта по brand + name для кэширования (internal query для использования в actions)
+// Используется для проверки, был ли продукт уже проанализирован
+export const findByBrandAndName = internalQuery({
+  args: { 
+    brand: v.string(),
+    name: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Нормализуем входные данные для поиска (убираем лишние пробелы, приводим к нижнему регистру)
+    const searchBrand = args.brand.trim().toLowerCase();
+    const searchName = args.name.trim().toLowerCase();
+
+    // Получаем все продукты и ищем совпадения
+    // Используем гибкий поиск с учетом различий в написании
+    const allProducts = await ctx.db.query('products').collect();
+    
+    // Сначала пробуем точное совпадение (после нормализации)
+    const exactMatch = allProducts.find(p => {
+      const pBrand = p.brand.trim().toLowerCase();
+      const pName = p.name.trim().toLowerCase();
+      return pBrand === searchBrand && pName === searchName;
+    });
+
+    if (exactMatch) {
+      return exactMatch;
+    }
+
+    // Если точного совпадения нет, ищем близкое совпадение
+    // Это помогает найти продукты с небольшими вариациями в написании
+    const fuzzyMatch = allProducts.find(p => {
+      const pBrand = p.brand.trim().toLowerCase();
+      const pName = p.name.trim().toLowerCase();
+      
+      // Проверяем, что оба поля совпадают (с учетом частичных совпадений)
+      // Используем более строгую логику: ищем, где одно поле содержит другое
+      const brandMatch = pBrand === searchBrand || 
+                        (pBrand.length > 3 && searchBrand.length > 3 && 
+                         (pBrand.includes(searchBrand) || searchBrand.includes(pBrand)));
+      const nameMatch = pName === searchName || 
+                       (pName.length > 3 && searchName.length > 3 && 
+                        (pName.includes(searchName) || searchName.includes(pName)));
+      
+      return brandMatch && nameMatch;
+    });
+
+    return fuzzyMatch || null;
   },
 });
 

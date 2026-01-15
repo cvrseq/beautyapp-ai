@@ -43,7 +43,7 @@ export const VALIDATION = {
 export const API_CONFIG = {
   VSEGPT_BASE_URL: 'https://api.vsegpt.ru/v1/chat/completions',
   TAVILY_BASE_URL: 'https://api.tavily.com/search',
-  MODEL: 'openai/gpt-4o-mini',
+  MODEL: 'google/gemini-3-flash-pre',
   HTTP_REFERER: 'https://beauty-ai.app',
   X_TITLE: 'Beauty AI',
 } as const;

@@ -58,7 +58,26 @@ export const analyzeProduct = action({
 
     const productInfo = aiResult;
 
-    // 2. Реальная логика Tavily (Добавляем поиск цен)
+    // 2. Проверка кэша: ищем существующий продукт по brand + name
+    const existingProduct = await ctx.runQuery(internal.products.findByBrandAndName, {
+      brand: productInfo.brand,
+      name: productInfo.name,
+    });
+
+    // Если продукт найден в кэше, возвращаем его ID без повторного анализа
+    if (existingProduct) {
+      return {
+        productId: existingProduct._id,
+        brand: existingProduct.brand,
+        name: existingProduct.name,
+        analysis: typeof existingProduct.ingredientsAnalysis === 'string'
+          ? JSON.parse(existingProduct.ingredientsAnalysis)
+          : existingProduct.ingredientsAnalysis,
+        price: existingProduct.priceEstimate,
+      };
+    }
+
+    // 3. Реальная логика Tavily (Добавляем поиск цен) - только если продукт не найден в кэше
     let searchPrice = 'Уточняется';
     try {
       const searchResponse = await fetch(API_CONFIG.TAVILY_BASE_URL, {
@@ -78,7 +97,7 @@ export const analyzeProduct = action({
       // тихо падаем на дефолтное "Уточняется"
     }
 
-    // 3. Конвертация base64 в Blob (Convex-way)
+    // 4. Конвертация base64 в Blob (Convex-way)
     // Используем стандартный подход для браузерных сред/Edge
     const binary = atob(args.imageBase64);
     const bytes = new Uint8Array(binary.length);
@@ -89,7 +108,7 @@ export const analyzeProduct = action({
       new Blob([bytes], { type: 'image/jpeg' })
     );
 
-    // 4. Сохранение в БД
+    // 5. Сохранение в БД (кэширование для будущих запросов)
     const productId: string = await ctx.runMutation(
       internal.products.saveProduct,
       {
