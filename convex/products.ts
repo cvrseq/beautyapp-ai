@@ -104,3 +104,24 @@ export const getById = query({
     return await ctx.db.get(args.id);
   },
 });
+
+// Получить все продукты для истории сканов, отсортированные по дате (новые сверху)
+export const getAllProducts = query({
+  args: {},
+  handler: async (ctx) => {
+    const products = await ctx.db.query('products').collect();
+    
+    // Получаем URL-ы для изображений и сортируем по _creationTime (новые сверху)
+    const productsWithUrls = await Promise.all(
+      products.map(async (product) => {
+        const imageUrl = await ctx.storage.getUrl(product.imageUrl as any);
+        return {
+          ...product,
+          imageUrl: imageUrl || product.imageUrl, // Fallback на оригинальный URL если не удалось получить
+        };
+      })
+    );
+    
+    return productsWithUrls.sort((a, b) => b._creationTime - a._creationTime);
+  },
+});

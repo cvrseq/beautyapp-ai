@@ -10,17 +10,17 @@ import { SKIN_TYPE_LABELS } from '@/types/skinType';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from 'convex/react';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 import {
-    ActivityIndicator,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState } from 'react';
 
 export default function ProductResultScreen() {
   const { id } = useLocalSearchParams();
@@ -28,6 +28,13 @@ export default function ProductResultScreen() {
   const { hairType } = useHairType();
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
+  const [compatibilityModal, setCompatibilityModal] = useState<{
+    visible: boolean;
+    type: 'skin' | 'hair';
+    compatibility: any;
+    status: string;
+    score: number;
+  } | null>(null);
 
   // Получаем данные
   const product = useQuery(api.products.getById, id ? { id: id as Id<'products'> } : 'skip');
@@ -205,6 +212,46 @@ export default function ProductResultScreen() {
         return 'alert-circle';
       default:
         return 'ellipse';
+    }
+  };
+
+  // Функция для генерации полного описания совместимости
+  const getCompatibilityDescription = (
+    type: 'skin' | 'hair',
+    status: string,
+    score: number
+  ): string => {
+    const typeLabel = type === 'skin' 
+      ? SKIN_TYPE_LABELS[skinType || 'normal']
+      : HAIR_TYPE_LABELS[hairType || 'normal'];
+    
+    if (status === 'good' && score >= 70) {
+      if (type === 'skin') {
+        const skinSpecific = skinType === 'dry' 
+          ? 'Продукт содержит увлажняющие компоненты, которые помогают удерживать влагу и предотвращают обезвоживание. Идеально подходит для сухой кожи, обеспечивая необходимую гидратацию и защиту.'
+          : skinType === 'oily'
+          ? 'Продукт помогает контролировать выработку себума и предотвращает появление излишней жирности. Содержит компоненты, которые матируют кожу и поддерживают оптимальный баланс.'
+          : skinType === 'sensitive'
+          ? 'Продукт содержит мягкие, не раздражающие компоненты, безопасные для чувствительной кожи. Не вызывает аллергических реакций и подходит для ежедневного использования.'
+          : skinType === 'combination'
+          ? 'Продукт балансирует состояние разных зон лица, увлажняя сухие участки и матируя жирные. Идеально подходит для комбинированной кожи.'
+          : 'Продукт поддерживает естественный баланс нормальной кожи и не вызывает побочных эффектов. Подходит для регулярного использования.';
+        return `Продукт отлично подходит для ${typeLabel.toLowerCase()}. ${skinSpecific} Компоненты состава идеально сочетаются с вашим типом кожи и обеспечивают максимальную пользу.`;
+      } else {
+        return `Продукт отлично подходит для ${typeLabel.toLowerCase()} волос. Компоненты состава улучшают состояние волос, укрепляют их структуру и придают здоровый блеск. Регулярное использование обеспечит максимальный результат.`;
+      }
+    } else if (status === 'bad' || score < 40) {
+      if (type === 'skin') {
+        return `Продукт не рекомендуется для ${typeLabel.toLowerCase()}. Состав может вызывать раздражение, сухость или другие нежелательные реакции. Некоторые компоненты могут усугубить существующие проблемы кожи. Рекомендуется избегать использования или применять с крайней осторожностью после консультации со специалистом.`;
+      } else {
+        return `Продукт не рекомендуется для ${typeLabel.toLowerCase()} волос. Состав может негативно влиять на структуру волос, вызывать сухость, ломкость или другие проблемы. Рекомендуется избегать использования.`;
+      }
+    } else {
+      if (type === 'skin') {
+        return `Продукт нейтрально влияет на ${typeLabel.toLowerCase()}. Некоторые компоненты могут быть полезны, но есть ингредиенты, которые требуют осторожности. Рекомендуется провести тест на небольшом участке кожи перед полноценным использованием.`;
+      } else {
+        return `Продукт нейтрально влияет на ${typeLabel.toLowerCase()} волосы. Состав может иметь как положительные, так и отрицательные стороны. Рекомендуется использовать умеренно и следить за реакцией волос.`;
+      }
     }
   };
 
@@ -488,7 +535,17 @@ export default function ProductResultScreen() {
             <View style={styles.section}>
               <Text style={[APPLE_TEXT_STYLES.caption1, styles.sectionHeader]}>СОВМЕСТИМОСТЬ</Text>
               <View style={styles.sectionContent}>
-                <TouchableOpacity style={[styles.listItem, styles.listItemLast]} activeOpacity={0.6}>
+                <TouchableOpacity 
+                  style={[styles.listItem, styles.listItemLast]} 
+                  activeOpacity={0.6}
+                  onPress={() => setCompatibilityModal({
+                    visible: true,
+                    type: 'skin',
+                    compatibility,
+                    status,
+                    score,
+                  })}
+                >
                   <View style={[styles.listIcon, { backgroundColor: style.bgColor }]}>
                     <Ionicons name={style.iconName} size={24} color="#FFFFFF" />
                   </View>
@@ -520,7 +577,17 @@ export default function ProductResultScreen() {
             <View style={styles.section}>
               <Text style={[APPLE_TEXT_STYLES.caption1, styles.sectionHeader]}>СОВМЕСТИМОСТЬ</Text>
               <View style={styles.sectionContent}>
-                <TouchableOpacity style={[styles.listItem, styles.listItemLast]} activeOpacity={0.6}>
+                <TouchableOpacity 
+                  style={[styles.listItem, styles.listItemLast]} 
+                  activeOpacity={0.6}
+                  onPress={() => setCompatibilityModal({
+                    visible: true,
+                    type: 'hair',
+                    compatibility,
+                    status,
+                    score,
+                  })}
+                >
                   <View style={[styles.listIcon, { backgroundColor: style.bgColor }]}>
                     <Ionicons name={style.iconName} size={24} color="#FFFFFF" />
                   </View>
@@ -756,6 +823,123 @@ export default function ProductResultScreen() {
                     </Text>
                   </View>
                 )}
+              </ScrollView>
+            </>
+          )}
+        </SafeAreaView>
+      </Modal>
+
+      {/* Compatibility Detail Modal */}
+      <Modal
+        visible={compatibilityModal !== null && compatibilityModal.visible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setCompatibilityModal(null)}
+      >
+        <SafeAreaView style={styles.modalContainer} edges={['top']}>
+          {compatibilityModal && (
+            <>
+              {/* Modal Header */}
+              <View style={styles.modalHeader}>
+                <TouchableOpacity
+                  style={styles.modalCloseButton}
+                  onPress={() => setCompatibilityModal(null)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="close" size={28} color="#000000" />
+                </TouchableOpacity>
+                <Text style={[APPLE_TEXT_STYLES.title2, styles.modalTitle]}>
+                  Совместимость
+                </Text>
+                <View style={styles.modalHeaderSpacer} />
+              </View>
+
+              <ScrollView style={styles.modalScrollView} showsVerticalScrollIndicator={false}>
+                {(() => {
+                  const style = getCompatibilityStyle(compatibilityModal.status, compatibilityModal.score);
+                  const typeLabel = compatibilityModal.type === 'skin'
+                    ? SKIN_TYPE_LABELS[skinType || 'normal']
+                    : HAIR_TYPE_LABELS[hairType || 'normal'];
+                  const description = getCompatibilityDescription(
+                    compatibilityModal.type,
+                    compatibilityModal.status,
+                    compatibilityModal.score
+                  );
+
+                  return (
+                    <>
+                      {/* Compatibility Status */}
+                      <View style={styles.modalIconSection}>
+                        <View style={[styles.modalIconContainer, { backgroundColor: style.bgColor }]}>
+                          <Ionicons name={style.iconName} size={64} color="#FFFFFF" />
+                        </View>
+                        <View style={styles.modalStatusBadge}>
+                          <Text style={[APPLE_TEXT_STYLES.headline, { 
+                            color: style.iconColor 
+                          }]}>
+                            {style.label}
+                          </Text>
+                          <Text style={[APPLE_TEXT_STYLES.subhead, { color: '#8E8E93', marginTop: 4 }]}>
+                            Для {typeLabel.toLowerCase()} • {compatibilityModal.score}%
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Full Description */}
+                      <View style={styles.modalSection}>
+                        <Text style={[APPLE_TEXT_STYLES.headline, styles.modalSectionTitle]}>
+                          Почему {compatibilityModal.status === 'good' ? 'подходит' : compatibilityModal.status === 'bad' ? 'не рекомендуется' : 'нейтрально'}?
+                        </Text>
+                        <Text style={[APPLE_TEXT_STYLES.body, styles.modalSectionText]}>
+                          {description}
+                        </Text>
+                      </View>
+
+                      {/* Additional Benefits or Risks */}
+                      {compatibilityModal.status === 'good' && analysis.pros.length > 0 && (
+                        <View style={styles.modalSection}>
+                          <View style={styles.modalSectionHeader}>
+                            <Ionicons name="checkmark-circle" size={20} color="#34C759" />
+                            <Text style={[APPLE_TEXT_STYLES.headline, styles.modalSectionTitle]}>
+                              Преимущества продукта
+                            </Text>
+                          </View>
+                          {analysis.pros.slice(0, 3).map((pro, idx) => (
+                            <View key={idx} style={styles.modalBenefitBlock}>
+                              <View style={styles.modalBenefitHeader}>
+                                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#34C759', marginRight: 8 }} />
+                                <Text style={[APPLE_TEXT_STYLES.body, styles.modalBenefitText]}>
+                                  {pro}
+                                </Text>
+                              </View>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+
+                      {compatibilityModal.status === 'bad' && analysis.cons.length > 0 && (
+                        <View style={styles.modalSection}>
+                          <View style={styles.modalSectionHeader}>
+                            <Ionicons name="alert-circle" size={20} color="#FF3B30" />
+                            <Text style={[APPLE_TEXT_STYLES.headline, styles.modalSectionTitle]}>
+                              Риски и ограничения
+                            </Text>
+                          </View>
+                          {analysis.cons.slice(0, 3).map((con, idx) => (
+                            <View key={idx} style={styles.modalRiskBlock}>
+                              <View style={styles.modalBenefitHeader}>
+                                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#FF3B30', marginRight: 8 }} />
+                                <Text style={[APPLE_TEXT_STYLES.body, styles.modalRiskText]}>
+                                  {con}
+                                </Text>
+                              </View>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+                    </>
+                  );
+                })()}
               </ScrollView>
             </>
           )}
@@ -1142,6 +1326,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   modalStatusBadge: {
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,

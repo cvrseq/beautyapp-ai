@@ -1,6 +1,6 @@
 import { HairType, isValidHairType } from '@/types/hairType';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export const STORAGE_KEY = '@beauty_ai_hair_type';
 
@@ -10,22 +10,25 @@ export function useHairType() {
   const [hairType, setHairType] = useState<HairTypeOrNull>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadHairType();
-  }, []);
-
-  const loadHairType = async () => {
+  const loadHairType = useCallback(async () => {
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
       if (isValidHairType(stored)) {
         setHairType(stored);
+      } else {
+        setHairType(null);
       }
     } catch (error) {
       console.error('Ошибка загрузки типа волос:', error);
+      setHairType(null);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadHairType();
+  }, [loadHairType]);
 
   const saveHairType = async (type: HairTypeOrNull) => {
     try {

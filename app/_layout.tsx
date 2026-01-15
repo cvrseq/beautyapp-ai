@@ -14,6 +14,7 @@ export default function RootLayout() {
         <Stack.Screen name="search" options={{ headerShown: false }} />
         <Stack.Screen name="product-result" options={{ headerShown: false }} />
         <Stack.Screen name="profile" options={{ headerShown: false }} />
+        <Stack.Screen name="scan-history" options={{ headerShown: false }} />
       </Stack>
     </ConvexProvider>
   );

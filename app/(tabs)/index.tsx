@@ -5,28 +5,22 @@ import { useSkinType } from '@/hooks/useSkinType';
 import { HAIR_TYPE_SHORT_LABELS } from '@/types/hairType';
 import { SKIN_TYPE_SHORT_LABELS } from '@/types/skinType';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
-  const { skinType, isLoading: isLoadingSkin } = useSkinType();
-  const { hairType, isLoading: isLoadingHair } = useHairType();
-  const [showSkinTypePrompt, setShowSkinTypePrompt] = useState(false);
-  const [showHairTypePrompt, setShowHairTypePrompt] = useState(false);
+  const { skinType, isLoading: isLoadingSkin, loadSkinType } = useSkinType();
+  const { hairType, isLoading: isLoadingHair, loadHairType } = useHairType();
 
-  useEffect(() => {
-    if (!isLoadingSkin && !skinType) {
-      setShowSkinTypePrompt(true);
-    }
-  }, [skinType, isLoadingSkin]);
-
-  useEffect(() => {
-    if (!isLoadingHair && !hairType) {
-      setShowHairTypePrompt(true);
-    }
-  }, [hairType, isLoadingHair]);
+  // Обновляем данные при возврате на экран
+  useFocusEffect(
+    useCallback(() => {
+      loadSkinType();
+      loadHairType();
+    }, [loadSkinType, loadHairType])
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -46,7 +40,7 @@ export default function HomeScreen() {
         >
           <Ionicons name="search" size={18} color="#8E8E93" style={styles.searchIcon} />
           <Text style={[APPLE_TEXT_STYLES.body, styles.searchPlaceholder]}>
-            Search
+            Введи запрос
           </Text>
           <Ionicons name="mic-outline" size={18} color="#8E8E93" style={styles.micIcon} />
         </TouchableOpacity>
@@ -85,14 +79,6 @@ export default function HomeScreen() {
             title="Умный сканер"
             subtitle="Наведи камеру на состав продукта"
             onPress={() => router.push('/camera')}
-            isLast={false}
-          />
-          <SettingsItem
-            icon="search"
-            iconColor="#8E8E93"
-            title="Поиск по названию"
-            subtitle="Введи бренд вручную"
-            onPress={() => router.push('/search')}
             isLast={true}
           />
         </View>
@@ -105,7 +91,7 @@ export default function HomeScreen() {
             title="Тип кожи"
             subtitle={skinType ? SKIN_TYPE_SHORT_LABELS[skinType] : 'Не настроено'}
             onPress={() => router.push('/skin-type-quiz')}
-            showPrompt={showSkinTypePrompt}
+            showPrompt={!skinType && !isLoadingSkin}
             isLast={false}
           />
           <SettingsItem
@@ -114,7 +100,7 @@ export default function HomeScreen() {
             title="Тип волос"
             subtitle={hairType ? HAIR_TYPE_SHORT_LABELS[hairType] : 'Не настроено'}
             onPress={() => router.push('/hair-type-quiz')}
-            showPrompt={showHairTypePrompt}
+            showPrompt={!hairType && !isLoadingHair}
             isLast={true}
           />
         </View>
@@ -126,7 +112,7 @@ export default function HomeScreen() {
             iconColor="#8E8E93"
             title="История сканов"
             subtitle="Просмотр сохранённых продуктов"
-            onPress={() => {}}
+            onPress={() => router.push('/scan-history')}
             isLast={true}
           />
         </View>

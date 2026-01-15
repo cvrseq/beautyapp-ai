@@ -1,6 +1,6 @@
 import { SkinType, isValidSkinType } from '@/types/skinType';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export const STORAGE_KEY = '@beauty_ai_skin_type';
 
@@ -10,22 +10,25 @@ export function useSkinType() {
   const [skinType, setSkinType] = useState<SkinTypeOrNull>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadSkinType();
-  }, []);
-
-  const loadSkinType = async () => {
+  const loadSkinType = useCallback(async () => {
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
       if (isValidSkinType(stored)) {
         setSkinType(stored);
+      } else {
+        setSkinType(null);
       }
     } catch (error) {
       console.error('Ошибка загрузки типа кожи:', error);
+      setSkinType(null);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadSkinType();
+  }, [loadSkinType]);
 
   const saveSkinType = async (type: SkinTypeOrNull) => {
     try {

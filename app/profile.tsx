@@ -5,13 +5,22 @@ import { useSkinType } from '@/hooks/useSkinType';
 import { HAIR_TYPE_LABELS } from '@/types/hairType';
 import { SKIN_TYPE_LABELS } from '@/types/skinType';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProfileScreen() {
-  const { skinType, isLoading: isLoadingSkin } = useSkinType();
-  const { hairType, isLoading: isLoadingHair } = useHairType();
+  const { skinType, isLoading: isLoadingSkin, loadSkinType } = useSkinType();
+  const { hairType, isLoading: isLoadingHair, loadHairType } = useHairType();
+
+  // Обновляем данные при возврате на экран
+  useFocusEffect(
+    useCallback(() => {
+      loadSkinType();
+      loadHairType();
+    }, [loadSkinType, loadHairType])
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

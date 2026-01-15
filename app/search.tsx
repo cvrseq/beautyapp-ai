@@ -1,14 +1,14 @@
-import { api } from '@/convex/_generated/api';
-import { SEARCH } from '@/constants/thresholds';
+import { ChevronArrow } from '@/components/ChevronArrow';
 import { APPLE_TEXT_STYLES } from '@/constants/fonts';
+import { SEARCH } from '@/constants/thresholds';
+import { api } from '@/convex/_generated/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from 'convex/react';
 import { router } from 'expo-router';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -16,46 +16,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronArrow } from '@/components/ChevronArrow';
-
-interface SuggestionItem {
-  id: string;
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  iconColor: string;
-  onPress: () => void;
-}
-
-const SUGGESTIONS: SuggestionItem[] = [
-  {
-    id: 'skincare',
-    label: 'Для кожи',
-    icon: 'person-outline',
-    iconColor: '#007AFF',
-    onPress: () => {},
-  },
-  {
-    id: 'haircare',
-    label: 'Для волос',
-    icon: 'cut-outline',
-    iconColor: '#8E8E93',
-    onPress: () => {},
-  },
-  {
-    id: 'scanner',
-    label: 'Сканер',
-    icon: 'scan-circle-outline',
-    iconColor: '#8E8E93',
-    onPress: () => router.push('/(tabs)/camera'),
-  },
-  {
-    id: 'history',
-    label: 'История',
-    icon: 'time-outline',
-    iconColor: '#8E8E93',
-    onPress: () => {},
-  },
-];
 
 export default function SearchScreen() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -99,10 +59,24 @@ export default function SearchScreen() {
     inputRef.current?.focus();
   };
 
-  const showSuggestions = !shouldSearch && !isFocused;
-
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Header with Back Button */}
+      <View style={styles.headerContainer}>
+        <TouchableOpacity 
+          onPress={handleCancel} 
+          style={styles.backButton}
+          activeOpacity={0.7}
+        >
+          <View style={styles.backButtonContent}>
+            <Ionicons name="chevron-back" size={24} color="#007AFF" />
+            <Text style={[APPLE_TEXT_STYLES.headline, styles.backButtonText]}>
+              Beauty AI
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+
       {/* Search Bar */}
       <View style={styles.searchBarContainer}>
         <View style={styles.searchBar}>
@@ -110,7 +84,7 @@ export default function SearchScreen() {
           <TextInput
             ref={inputRef}
             style={[APPLE_TEXT_STYLES.body, styles.searchInput]}
-            placeholder="Search"
+            placeholder="Введи запрос"
             placeholderTextColor="#8E8E93"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -127,43 +101,10 @@ export default function SearchScreen() {
             <Ionicons name="mic-outline" size={18} color="#8E8E93" style={styles.rightIcon} />
           )}
         </View>
-        {(isFocused || searchQuery.length > 0) && (
-          <TouchableOpacity onPress={handleCancel} style={styles.cancelButton} activeOpacity={0.7}>
-            <Text style={[APPLE_TEXT_STYLES.body, styles.cancelText]}>Cancel</Text>
-          </TouchableOpacity>
-        )}
       </View>
 
       {/* Content */}
-      {showSuggestions ? (
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          {/* Suggestions Section */}
-          <View style={styles.suggestionsSection}>
-            <Text style={[APPLE_TEXT_STYLES.headline, styles.suggestionsTitle]}>Suggestions</Text>
-            <View style={styles.suggestionsGrid}>
-              {SUGGESTIONS.map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.suggestionItem}
-                  onPress={item.onPress}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.suggestionIcon, { backgroundColor: item.iconColor === '#007AFF' ? '#007AFF' : '#F2F2F7' }]}>
-                    <Ionicons 
-                      name={item.icon} 
-                      size={24} 
-                      color={item.iconColor === '#007AFF' ? '#FFFFFF' : item.iconColor} 
-                    />
-                  </View>
-                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.suggestionLabel]} numberOfLines={1}>
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        </ScrollView>
-      ) : shouldSearch ? (
+      {shouldSearch ? (
         <View style={styles.resultsContainer}>
           {products === undefined ? (
             <View style={styles.emptyState}>
@@ -230,23 +171,35 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F2F2F7',
   },
-  searchBarContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  headerContainer: {
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 12,
     backgroundColor: '#F2F2F7',
   },
+  backButton: {
+    padding: 4,
+  },
+  backButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    color: '#007AFF',
+    marginLeft: -2,
+  },
+  searchBarContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    backgroundColor: '#F2F2F7',
+  },
   searchBar: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#E5E5EA',
     borderRadius: 10,
     paddingHorizontal: 12,
     height: 36,
-    marginRight: 8,
   },
   searchIcon: {
     marginRight: 8,
@@ -258,48 +211,6 @@ const styles = StyleSheet.create({
   },
   rightIcon: {
     marginLeft: 8,
-  },
-  cancelButton: {
-    paddingVertical: 4,
-    paddingLeft: 8,
-  },
-  cancelText: {
-    color: '#007AFF',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  suggestionsSection: {
-    paddingTop: 32,
-    paddingHorizontal: 16,
-  },
-  suggestionsTitle: {
-    color: '#000000',
-    marginBottom: 16,
-    fontWeight: '600',
-  },
-  suggestionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -8,
-  },
-  suggestionItem: {
-    width: '25%',
-    alignItems: 'center',
-    marginBottom: 24,
-    paddingHorizontal: 8,
-  },
-  suggestionIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  suggestionLabel: {
-    color: '#000000',
-    textAlign: 'center',
   },
   resultsContainer: {
     flex: 1,
