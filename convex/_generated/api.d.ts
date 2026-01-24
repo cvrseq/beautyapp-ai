@@ -14,6 +14,7 @@ import type * as constants from "../constants.js";
 import type * as migrations from "../migrations.js";
 import type * as myfunc from "../myfunc.js";
 import type * as products from "../products.js";
+import type * as test from "../test.js";
 import type * as types from "../types.js";
 
 import type {
@@ -29,6 +30,7 @@ declare const fullApi: ApiFromModules<{
   migrations: typeof migrations;
   myfunc: typeof myfunc;
   products: typeof products;
+  test: typeof test;
   types: typeof types;
 }>;
 

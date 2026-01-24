@@ -31,7 +31,7 @@ export default function ProductResultScreen() {
   const [compatibilityModal, setCompatibilityModal] = useState<{
     visible: boolean;
     type: 'skin' | 'hair';
-    compatibility: any;
+    compatibility: { status: string; score: number };
     status: string;
     score: number;
   } | null>(null);
@@ -290,7 +290,9 @@ export default function ProductResultScreen() {
           onPress={() => {
             if (router.canGoBack()) {
               router.back();
-            } 
+            } else {
+              router.replace('/');
+            }
           }}
           activeOpacity={0.7}
         >

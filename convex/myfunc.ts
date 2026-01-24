@@ -11,9 +11,9 @@ export const hello = query({
 // Публичный action для запуска миграции (можно вызвать из консоли Convex или временно через UI)
 export const runMigration = action({
   args: {},
-  handler: async (ctx): Promise<{ migrated: number }> => {
-    const result: { migrated: number } = await ctx.runMutation(
-      internal.migrations.migrateSkinCompatibility
+  handler: async (ctx): Promise<{ migratedSkin: number; migratedHair: number }> => {
+    const result: { migratedSkin: number; migratedHair: number } = await ctx.runMutation(
+      internal.migrations.migrateCompatibility
     );
     return result;
   },

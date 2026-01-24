@@ -41,7 +41,7 @@ export default function HairTypeQuizScreen() {
         if (router.canGoBack()) {
           router.back();
         } else {
-          router.replace('/(tabs)/');
+          router.replace('/');
         }
       }, 300);
     } catch (error) {
@@ -62,7 +62,7 @@ export default function HairTypeQuizScreen() {
             if (router.canGoBack()) {
               router.back();
             } else {
-              router.replace('/(tabs)/');
+              router.replace('/');
             }
           }}
           activeOpacity={0.7}

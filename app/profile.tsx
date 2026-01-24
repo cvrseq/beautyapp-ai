@@ -143,7 +143,9 @@ export default function ProfileScreen() {
                   ? `Ваш тип кожи: ${SKIN_TYPE_LABELS[skinType].toLowerCase()}. Ваш тип волос: ${HAIR_TYPE_LABELS[hairType].toLowerCase()}.`
                   : skinType
                   ? `Ваш тип кожи: ${SKIN_TYPE_LABELS[skinType].toLowerCase()}.`
-                  : `Ваш тип волос: ${HAIR_TYPE_LABELS[hairType].toLowerCase()}.`}
+                  : hairType
+                  ? `Ваш тип волос: ${HAIR_TYPE_LABELS[hairType].toLowerCase()}.`
+                  : 'Настройте свой профиль для персонализированных рекомендаций.'}
               </Text>
               <Text style={[APPLE_TEXT_STYLES.caption1, styles.summarySubtext]}>
                 Эти данные используются для персонализированных рекомендаций при анализе продуктов.

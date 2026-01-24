@@ -6,7 +6,16 @@ export const saveProduct = internalMutation({
   args: {
     brand: v.string(),
     name: v.string(),
-    analysis: v.any(), // или опиши структуру подробнее
+    analysis: v.object({
+      pros: v.array(v.string()),
+      cons: v.array(v.string()),
+      hazards: v.union(v.literal('low'), v.literal('medium'), v.literal('high')),
+      ingredients: v.array(v.object({
+        name: v.string(),
+        status: v.union(v.literal('green'), v.literal('yellow'), v.literal('red')),
+        desc: v.string(),
+      })),
+    }),
     price: v.string(),
     storageId: v.string(),
     category: v.optional(v.union(
@@ -15,8 +24,23 @@ export const saveProduct = internalMutation({
       v.literal('mixed'),
       v.literal('unknown')
     )),
-    skinCompatibility: v.optional(v.any()),
-    hairCompatibility: v.optional(v.any()),
+    skinCompatibility: v.optional(v.object({
+      dry: v.optional(v.object({ status: v.string(), score: v.number() })),
+      oily: v.optional(v.object({ status: v.string(), score: v.number() })),
+      combination: v.optional(v.object({ status: v.string(), score: v.number() })),
+      normal: v.optional(v.object({ status: v.string(), score: v.number() })),
+      sensitive: v.optional(v.object({ status: v.string(), score: v.number() })),
+    })),
+    hairCompatibility: v.optional(v.object({
+      straight: v.optional(v.object({ status: v.string(), score: v.number() })),
+      wavy: v.optional(v.object({ status: v.string(), score: v.number() })),
+      curly: v.optional(v.object({ status: v.string(), score: v.number() })),
+      coily: v.optional(v.object({ status: v.string(), score: v.number() })),
+      oily: v.optional(v.object({ status: v.string(), score: v.number() })),
+      dry: v.optional(v.object({ status: v.string(), score: v.number() })),
+      normal: v.optional(v.object({ status: v.string(), score: v.number() })),
+      damaged: v.optional(v.object({ status: v.string(), score: v.number() })),
+    })),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert('products', {
@@ -163,7 +187,8 @@ export const getAllProducts = query({
     // Получаем URL-ы для изображений и сортируем по _creationTime (новые сверху)
     const productsWithUrls = await Promise.all(
       products.map(async (product) => {
-        const imageUrl = await ctx.storage.getUrl(product.imageUrl as any);
+        const storageId = product.imageUrl as string;
+        const imageUrl = await ctx.storage.getUrl(storageId);
         return {
           ...product,
           imageUrl: imageUrl || product.imageUrl, // Fallback на оригинальный URL если не удалось получить

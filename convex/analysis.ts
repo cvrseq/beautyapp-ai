@@ -2,16 +2,17 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { action } from './_generated/server';
 import { API_CONFIG, CONFIDENCE_THRESHOLD } from './constants';
-import { type CosmeticAnalysis } from './types';
+import { type CosmeticAnalysis, type ProductCategory } from './types';
 
-interface ProductResult {
-  productId?: string;
-  brand?: string;
-  name?: string;
-  analysis?: CosmeticAnalysis;
-  price?: string;
-  error?: string;
-}
+type ProductResult =
+  | { error: string }
+  | {
+      productId: string;
+      brand: string;
+      name: string;
+      analysis: CosmeticAnalysis;
+      price: string;
+    };
 
 export const analyzeProduct = action({
   args: { 
@@ -42,21 +43,43 @@ export const analyzeProduct = action({
       hairType: args.hairType,
     });
 
-    if (!aiResult || aiResult.error) {
+    // Type guard для aiResult
+    if (!aiResult || typeof aiResult !== 'object' || 'error' in aiResult) {
       return {
         error:
-          aiResult?.error ||
-          'Не удалось распознать продукт. Попробуйте сделать фото ещё раз.',
+          (aiResult && typeof aiResult === 'object' && 'error' in aiResult && typeof aiResult.error === 'string')
+            ? aiResult.error
+            : 'Не удалось распознать продукт. Попробуйте сделать фото ещё раз.',
       };
     }
 
-    if (typeof aiResult.confidence !== 'number' || aiResult.confidence < CONFIDENCE_THRESHOLD) {
+    // Валидация структуры aiResult
+    if (
+      !('brand' in aiResult) || typeof aiResult.brand !== 'string' ||
+      !('name' in aiResult) || typeof aiResult.name !== 'string' ||
+      !('confidence' in aiResult) || typeof aiResult.confidence !== 'number' ||
+      !('analysis' in aiResult)
+    ) {
+      return {
+        error: 'Некорректный ответ от ИИ. Попробуйте ещё раз.',
+      };
+    }
+
+    if (aiResult.confidence < CONFIDENCE_THRESHOLD) {
       return {
         error: 'Не удалось четко распознать продукт. Попробуйте переснять фото.',
       };
     }
 
-    const productInfo = aiResult;
+    const productInfo = aiResult as {
+      brand: string;
+      name: string;
+      confidence: number;
+      analysis: CosmeticAnalysis;
+      category?: ProductCategory;
+      skinCompatibility?: unknown;
+      hairCompatibility?: unknown;
+    };
 
     // 2. Проверка кэша: ищем существующий продукт по brand + name
     const existingProduct = await ctx.runQuery(internal.products.findByBrandAndName, {
@@ -66,13 +89,21 @@ export const analyzeProduct = action({
 
     // Если продукт найден в кэше, возвращаем его ID без повторного анализа
     if (existingProduct) {
+      let analysis: CosmeticAnalysis;
+      try {
+        analysis = typeof existingProduct.ingredientsAnalysis === 'string'
+          ? JSON.parse(existingProduct.ingredientsAnalysis) as CosmeticAnalysis
+          : existingProduct.ingredientsAnalysis as CosmeticAnalysis;
+      } catch (e) {
+        console.error('Failed to parse cached analysis', e);
+        return { error: 'Ошибка загрузки данных из кэша. Попробуйте ещё раз.' };
+      }
+
       return {
         productId: existingProduct._id,
         brand: existingProduct.brand,
         name: existingProduct.name,
-        analysis: typeof existingProduct.ingredientsAnalysis === 'string'
-          ? JSON.parse(existingProduct.ingredientsAnalysis)
-          : existingProduct.ingredientsAnalysis,
+        analysis,
         price: existingProduct.priceEstimate,
       };
     }
@@ -118,8 +149,8 @@ export const analyzeProduct = action({
         price: searchPrice,
         storageId: storageId,
         category: productInfo.category || 'unknown',
-        skinCompatibility: productInfo.skinCompatibility,
-        hairCompatibility: productInfo.hairCompatibility,
+        skinCompatibility: productInfo.skinCompatibility as Record<string, { status: string; score: number }> | undefined,
+        hairCompatibility: productInfo.hairCompatibility as Record<string, { status: string; score: number }> | undefined,
       }
     );
 

@@ -80,7 +80,7 @@ export default function CameraScreen() {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={() => router.push('/(tabs)/')}
+          onPress={() => router.push('/')}
           style={{
             backgroundColor: 'rgba(0, 0, 0, 0.1)',
             paddingVertical: 16,
@@ -104,11 +104,15 @@ export default function CameraScreen() {
     try {
       setErrorMessage(null);
       setIsAnalyzing(true);
+      console.log('[Camera] Taking picture...');
+
       const photo = await cameraRef.current.takePictureAsync({
         quality: IMAGE_PROCESSING.QUALITY,
       });
 
       if (photo) {
+        console.log('[Camera] Picture taken, URI:', photo.uri);
+
         const manipulated = await ImageManipulator.manipulateAsync(
           photo.uri,
           [{ resize: { width: IMAGE_PROCESSING.MAX_WIDTH } }],
@@ -120,31 +124,48 @@ export default function CameraScreen() {
         );
 
         if (manipulated.base64) {
-          const result = await analyze({ 
+          console.log('[Camera] Image processed, base64 length:', manipulated.base64.length);
+          console.log('[Camera] Sending to AI with skinType:', skinType, 'hairType:', hairType);
+
+          const result = await analyze({
             imageBase64: manipulated.base64,
             skinType: skinType || undefined,
             hairType: hairType || undefined,
           });
-          if (!result || 'error' in result || !('productId' in result)) {
-            setErrorMessage(
-              ('error' in result ? result.error : undefined) ||
-                'Не удалось проанализировать фото. Попробуйте поднести камеру ближе и убрать блики.'
-            );
-          } else {
+
+          console.log('[Camera] AI result received:', result);
+
+          if (!result) {
+            console.error('[Camera] No result from AI');
+            setErrorMessage('Не удалось получить ответ от сервера. Попробуйте ещё раз.');
+          } else if ('error' in result) {
+            console.error('[Camera] AI returned error:', result.error);
+            setErrorMessage(result.error);
+          } else if ('productId' in result) {
+            console.log('[Camera] Success! Product ID:', result.productId);
             router.push({
               pathname: '/product-result',
               params: { id: result.productId },
             });
+          } else {
+            console.error('[Camera] Unexpected result format:', result);
+            setErrorMessage('Не удалось проанализировать фото. Попробуйте поднести камеру ближе и убрать блики.');
           }
         } else {
+          console.error('[Camera] No base64 data in manipulated image');
           setErrorMessage(
             'Не удалось получить данные снимка. Попробуйте сделать фото ещё раз.'
           );
         }
       }
     } catch (error) {
-      console.error(error);
-      setErrorMessage('Ошибка камеры. Попробуйте перезапустить приложение или сделать снимок ещё раз.');
+      console.error('[Camera] Error in takeAndAnalyzePhoto:', error);
+      if (error instanceof Error) {
+        console.error('[Camera] Error name:', error.name);
+        console.error('[Camera] Error message:', error.message);
+        console.error('[Camera] Error stack:', error.stack);
+      }
+      setErrorMessage(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}. Попробуйте ещё раз.`);
     } finally {
       setIsAnalyzing(false);
     }
@@ -159,7 +180,7 @@ export default function CameraScreen() {
       <SafeAreaView style={styles.topSafeArea} edges={['top']}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.push('/(tabs)/')}
+          onPress={() => router.push('/')}
           activeOpacity={0.8}
         >
           <Ionicons name="chevron-back" size={28} color="white" />

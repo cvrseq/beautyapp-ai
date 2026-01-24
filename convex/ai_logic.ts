@@ -101,7 +101,8 @@ export const identifyProduct = internalAction({
                       ? `Учитывай, что у пользователя ${args.hairType === 'straight' ? 'прямые' : args.hairType === 'wavy' ? 'волнистые' : args.hairType === 'curly' ? 'кудрявые' : args.hairType === 'coily' ? 'кучерявые' : args.hairType === 'oily' ? 'жирные' : args.hairType === 'dry' ? 'сухие' : args.hairType === 'normal' ? 'нормальные' : 'повреждённые'} волосы.`
                       : '',
                     'Верни ТОЛЬКО чистый JSON (без markdown ```json) в формате:',
-                    '{brand, name, confidence, category: "skin"|"hair"|"mixed"|"unknown", analysis: {pros, cons, hazards, ingredients: [{name, status, desc}]}, skinCompatibility: {dry: {status: "good"|"bad"|"neutral", score: число от 0 до 100}, oily: {status, score}, combination: {status, score}, normal: {status, score}, sensitive: {status, score}}, hairCompatibility: {straight: {status: "good"|"bad"|"neutral", score: число от 0 до 100}, wavy: {status, score}, curly: {status, score}, coily: {status, score}, oily: {status, score}, dry: {status, score}, normal: {status, score}, damaged: {status, score}}}.',
+                    '{brand, name, confidence, category: "skin"|"hair"|"mixed"|"unknown", analysis: {pros: [массив строк], cons: [массив строк], hazards: "low"|"medium"|"high", ingredients: [{name, status: "green"|"yellow"|"red", desc}]}, skinCompatibility: {dry: {status: "good"|"bad"|"neutral", score: число от 0 до 100}, oily: {status, score}, combination: {status, score}, normal: {status, score}, sensitive: {status, score}}, hairCompatibility: {straight: {status: "good"|"bad"|"neutral", score: число от 0 до 100}, wavy: {status, score}, curly: {status, score}, coily: {status, score}, oily: {status, score}, dry: {status, score}, normal: {status, score}, damaged: {status, score}}}.',
+                    'ВАЖНО: hazards должен быть СТРОКОЙ "low" (низкий риск), "medium" (средний риск) или "high" (высокий риск), НЕ массивом!',
                     'В skinCompatibility (если category = "skin" или "mixed") для каждого типа кожи укажи:',
                     `- status: "good" (хорошо подходит, score >= ${SKIN_COMPATIBILITY_SCORES.GOOD_MIN}), "neutral" (нейтрально, ${SKIN_COMPATIBILITY_SCORES.NEUTRAL_MIN}-${SKIN_COMPATIBILITY_SCORES.GOOD_MIN - 1}), "bad" (не подходит, < ${SKIN_COMPATIBILITY_SCORES.NEUTRAL_MIN})`,
                     '- score: число от 0 до 100, где 100 = идеально подходит, 0 = абсолютно не подходит',
@@ -137,15 +138,15 @@ export const identifyProduct = internalAction({
 
       // OpenRouter отвечает в формате chat.completions (как OpenAI).
       const message = data?.choices?.[0]?.message;
-      let text: any = message?.content;
+      let text: string | unknown = message?.content;
 
       // content может быть строкой или массивом блоков (text/image_url и т.п.)
       if (Array.isArray(text)) {
         text = text
-          .map((part: any) => {
+          .map((part: unknown) => {
             if (typeof part === 'string') return part;
-            if (part?.text) return part.text;
-            if (part?.content) return part.content;
+            if (part && typeof part === 'object' && 'text' in part) return part.text;
+            if (part && typeof part === 'object' && 'content' in part) return part.content;
             return '';
           })
           .filter(Boolean)
@@ -159,7 +160,7 @@ export const identifyProduct = internalAction({
         };
       }
 
-      let parsed: any;
+      let parsed: unknown;
       try {
         // Иногда модель может вернуть текст с лишними символами вокруг JSON.
         const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -174,6 +175,11 @@ export const identifyProduct = internalAction({
       // Минимальная валидация структуры
       if (
         !parsed ||
+        typeof parsed !== 'object' ||
+        !('brand' in parsed) ||
+        !('name' in parsed) ||
+        !('confidence' in parsed) ||
+        !('analysis' in parsed) ||
         typeof parsed.brand !== 'string' ||
         typeof parsed.name !== 'string' ||
         typeof parsed.confidence !== 'number' ||
@@ -186,135 +192,206 @@ export const identifyProduct = internalAction({
       }
 
       // Нормализация категории продукта
-      parsed.category = normalizeCategory(parsed.category);
+      const result = parsed as Record<string, unknown>;
+      const category = 'category' in result ? result.category : undefined;
+      result.category = normalizeCategory(category);
+
+      // Валидация и нормализация analysis
+      if (result.analysis && typeof result.analysis === 'object') {
+        const analysis = result.analysis as Record<string, unknown>;
+
+        // Валидация pros
+        if (!Array.isArray(analysis.pros)) {
+          console.warn('AI returned invalid pros, defaulting to empty array');
+          analysis.pros = [];
+        }
+
+        // Валидация cons
+        if (!Array.isArray(analysis.cons)) {
+          console.warn('AI returned invalid cons, defaulting to empty array');
+          analysis.cons = [];
+        }
+
+        // Валидация ingredients
+        if (!Array.isArray(analysis.ingredients)) {
+          console.warn('AI returned invalid ingredients, defaulting to empty array');
+          analysis.ingredients = [];
+        } else {
+          // Валидация каждого ингредиента
+          analysis.ingredients = analysis.ingredients.filter((ing: unknown) => {
+            if (!ing || typeof ing !== 'object') return false;
+            const ingredient = ing as Record<string, unknown>;
+            if (typeof ingredient.name !== 'string') return false;
+            if (!['green', 'yellow', 'red'].includes(ingredient.status as string)) return false;
+            if (typeof ingredient.desc !== 'string') return false;
+            return true;
+          });
+        }
+
+        // Валидация и нормализация hazards
+        if (Array.isArray(analysis.hazards)) {
+          console.warn('AI returned hazards as array, normalizing to string');
+          // Определяем уровень риска по количеству элементов
+          const hazardsCount = analysis.hazards.length;
+          if (hazardsCount === 0) {
+            analysis.hazards = 'low';
+          } else if (hazardsCount >= 3) {
+            analysis.hazards = 'high';
+          } else {
+            analysis.hazards = 'medium';
+          }
+        } else if (typeof analysis.hazards !== 'string') {
+          console.warn('AI returned invalid hazards format, defaulting to medium');
+          analysis.hazards = 'medium';
+        } else {
+          // Валидируем строковое значение
+          const validHazards = ['low', 'medium', 'high'];
+          if (!validHazards.includes(analysis.hazards)) {
+            console.warn('AI returned invalid hazards value:', analysis.hazards);
+            analysis.hazards = 'medium';
+          }
+        }
+      }
 
       // Валидация и нормализация skinCompatibility (только для продуктов для кожи)
-      if (parsed.category === 'skin' || parsed.category === 'mixed' || parsed.category === 'unknown') {
-        if (!parsed.skinCompatibility) {
+      if (result.category === 'skin' || result.category === 'mixed' || result.category === 'unknown') {
+        if (!result.skinCompatibility || typeof result.skinCompatibility !== 'object') {
           // Если нет skinCompatibility, создаём нейтральные значения
-          parsed.skinCompatibility = {} as SkinCompatibility;
+          const skinCompat: SkinCompatibility = {} as SkinCompatibility;
           for (const type of SKIN_TYPES) {
-            parsed.skinCompatibility[type] = {
+            skinCompat[type] = {
               status: 'neutral',
               score: DEFAULT_SKIN_COMPATIBILITY_SCORES.neutral,
             };
           }
+          result.skinCompatibility = skinCompat;
         } else {
         // Валидируем и нормализуем существующие данные
+        const skinCompat = result.skinCompatibility as Record<string, unknown>;
         for (const type of SKIN_TYPES) {
-          if (!parsed.skinCompatibility[type] || typeof parsed.skinCompatibility[type] !== 'object') {
+          if (!skinCompat[type] || typeof skinCompat[type] !== 'object') {
             // Старый формат или отсутствует - преобразуем
-            const oldValue = parsed.skinCompatibility[type];
+            const oldValue = skinCompat[type];
             if (typeof oldValue === 'string' && isValidSkinStatus(oldValue)) {
               // Конвертируем старый формат в новый
-              parsed.skinCompatibility[type] = {
+              skinCompat[type] = {
                 status: oldValue,
                 score: DEFAULT_SKIN_COMPATIBILITY_SCORES[oldValue],
               };
             } else {
-              parsed.skinCompatibility[type] = {
+              skinCompat[type] = {
                 status: 'neutral',
                 score: DEFAULT_SKIN_COMPATIBILITY_SCORES.neutral,
               };
             }
           } else {
             // Новый формат - валидируем
-            const item = parsed.skinCompatibility[type] as SkinCompatibilityItem;
-            if (!isValidSkinStatus(item.status)) {
-              item.status = 'neutral';
+            const itemData = skinCompat[type] as Record<string, unknown>;
+            let status = typeof itemData.status === 'string' ? itemData.status : 'neutral';
+            if (!isValidSkinStatus(status)) {
+              status = 'neutral';
             }
             // Нормализуем score к 0-100
-            if (typeof item.score !== 'number' || isNaN(item.score)) {
-              item.score = DEFAULT_SKIN_COMPATIBILITY_SCORES[item.status];
+            let score = typeof itemData.score === 'number' ? itemData.score : DEFAULT_SKIN_COMPATIBILITY_SCORES[status as SkinCompatibilityStatus];
+            if (isNaN(score)) {
+              score = DEFAULT_SKIN_COMPATIBILITY_SCORES[status as SkinCompatibilityStatus];
             } else {
-              item.score = Math.max(0, Math.min(100, Math.round(item.score)));
+              score = Math.max(0, Math.min(100, Math.round(score)));
             }
             // Синхронизируем status и score
-            if (item.score >= SKIN_COMPATIBILITY_SCORES.GOOD_MIN && item.status !== 'good') {
-              item.status = 'good';
-            } else if (item.score < SKIN_COMPATIBILITY_SCORES.NEUTRAL_MIN && item.status !== 'bad') {
-              item.status = 'bad';
+            if (score >= SKIN_COMPATIBILITY_SCORES.GOOD_MIN && status !== 'good') {
+              status = 'good';
+            } else if (score < SKIN_COMPATIBILITY_SCORES.NEUTRAL_MIN && status !== 'bad') {
+              status = 'bad';
             } else if (
-              item.score >= SKIN_COMPATIBILITY_SCORES.NEUTRAL_MIN &&
-              item.score < SKIN_COMPATIBILITY_SCORES.GOOD_MIN &&
-              item.status !== 'neutral'
+              score >= SKIN_COMPATIBILITY_SCORES.NEUTRAL_MIN &&
+              score < SKIN_COMPATIBILITY_SCORES.GOOD_MIN &&
+              status !== 'neutral'
             ) {
-              item.status = 'neutral';
+              status = 'neutral';
             }
+            skinCompat[type] = { status, score };
           }
         }
+        result.skinCompatibility = skinCompat;
+      }
       }
 
       // Валидация и нормализация hairCompatibility (только для продуктов для волос)
-      if (parsed.category === 'hair' || parsed.category === 'mixed' || parsed.category === 'unknown') {
-        if (!parsed.hairCompatibility) {
+      if (result.category === 'hair' || result.category === 'mixed' || result.category === 'unknown') {
+        if (!result.hairCompatibility || typeof result.hairCompatibility !== 'object') {
           // Если нет hairCompatibility, создаём нейтральные значения
-          parsed.hairCompatibility = {} as HairCompatibility;
+          const hairCompat: HairCompatibility = {} as HairCompatibility;
           for (const type of HAIR_TYPES) {
-            parsed.hairCompatibility[type] = {
+            hairCompat[type] = {
               status: 'neutral',
               score: DEFAULT_HAIR_COMPATIBILITY_SCORES.neutral,
             };
           }
+          result.hairCompatibility = hairCompat;
         } else {
           // Валидируем и нормализуем существующие данные
+          const hairCompat = result.hairCompatibility as Record<string, unknown>;
           for (const type of HAIR_TYPES) {
-            if (!parsed.hairCompatibility[type] || typeof parsed.hairCompatibility[type] !== 'object') {
+            if (!hairCompat[type] || typeof hairCompat[type] !== 'object') {
               // Старый формат или отсутствует - преобразуем
-              const oldValue = parsed.hairCompatibility[type];
+              const oldValue = hairCompat[type];
               if (typeof oldValue === 'string' && isValidHairStatus(oldValue)) {
                 // Конвертируем старый формат в новый
-                parsed.hairCompatibility[type] = {
+                hairCompat[type] = {
                   status: oldValue,
                   score: DEFAULT_HAIR_COMPATIBILITY_SCORES[oldValue],
                 };
               } else {
-                parsed.hairCompatibility[type] = {
+                hairCompat[type] = {
                   status: 'neutral',
                   score: DEFAULT_HAIR_COMPATIBILITY_SCORES.neutral,
                 };
               }
             } else {
               // Новый формат - валидируем
-              const item = parsed.hairCompatibility[type] as HairCompatibilityItem;
-              if (!isValidHairStatus(item.status)) {
-                item.status = 'neutral';
+              const itemData = hairCompat[type] as Record<string, unknown>;
+              let status = typeof itemData.status === 'string' ? itemData.status : 'neutral';
+              if (!isValidHairStatus(status)) {
+                status = 'neutral';
               }
               // Нормализуем score к 0-100
-              if (typeof item.score !== 'number' || isNaN(item.score)) {
-                item.score = DEFAULT_HAIR_COMPATIBILITY_SCORES[item.status];
+              let score = typeof itemData.score === 'number' ? itemData.score : DEFAULT_HAIR_COMPATIBILITY_SCORES[status as HairCompatibilityStatus];
+              if (isNaN(score)) {
+                score = DEFAULT_HAIR_COMPATIBILITY_SCORES[status as HairCompatibilityStatus];
               } else {
-                item.score = Math.max(0, Math.min(100, Math.round(item.score)));
+                score = Math.max(0, Math.min(100, Math.round(score)));
               }
               // Синхронизируем status и score
-              if (item.score >= HAIR_COMPATIBILITY_SCORES.GOOD_MIN && item.status !== 'good') {
-                item.status = 'good';
-              } else if (item.score < HAIR_COMPATIBILITY_SCORES.NEUTRAL_MIN && item.status !== 'bad') {
-                item.status = 'bad';
+              if (score >= HAIR_COMPATIBILITY_SCORES.GOOD_MIN && status !== 'good') {
+                status = 'good';
+              } else if (score < HAIR_COMPATIBILITY_SCORES.NEUTRAL_MIN && status !== 'bad') {
+                status = 'bad';
               } else if (
-                item.score >= HAIR_COMPATIBILITY_SCORES.NEUTRAL_MIN &&
-                item.score < HAIR_COMPATIBILITY_SCORES.GOOD_MIN &&
-                item.status !== 'neutral'
+                score >= HAIR_COMPATIBILITY_SCORES.NEUTRAL_MIN &&
+                score < HAIR_COMPATIBILITY_SCORES.GOOD_MIN &&
+                status !== 'neutral'
               ) {
-                item.status = 'neutral';
+                status = 'neutral';
               }
+              hairCompat[type] = { status, score };
             }
           }
+          result.hairCompatibility = hairCompat;
         }
       }
 
       // Если категория "skin", удаляем hairCompatibility (если есть)
-      if (parsed.category === 'skin' && parsed.hairCompatibility) {
-        delete parsed.hairCompatibility;
+      if (result.category === 'skin' && result.hairCompatibility) {
+        delete result.hairCompatibility;
       }
 
       // Если категория "hair", удаляем skinCompatibility (если есть)
-      if (parsed.category === 'hair' && parsed.skinCompatibility) {
-        delete parsed.skinCompatibility;
+      if (result.category === 'hair' && result.skinCompatibility) {
+        delete result.skinCompatibility;
       }
 
-      return parsed;
-    } 
+      return result;
     } catch (err) {
       console.error('OpenRouter request failed', err);
       return {

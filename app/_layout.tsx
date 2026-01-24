@@ -1,7 +1,11 @@
 import { ConvexProvider, ConvexReactClient } from 'convex/react';
 import { Stack } from 'expo-router';
 
-const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL || '');
+const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
+if (!convexUrl) {
+  throw new Error('EXPO_PUBLIC_CONVEX_URL environment variable is not set');
+}
+const convex = new ConvexReactClient(convexUrl);
 
 export default function RootLayout() {
   return (
