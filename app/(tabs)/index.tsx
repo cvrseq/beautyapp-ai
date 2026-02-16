@@ -2,8 +2,12 @@ import { ChevronArrow } from '@/components/ChevronArrow';
 import { APPLE_TEXT_STYLES } from '@/constants/fonts';
 import { useHairType } from '@/hooks/useHairType';
 import { useSkinType } from '@/hooks/useSkinType';
+import { useAge } from '@/hooks/useAge';
+import { useLifestyle } from '@/hooks/useLifestyle';
+import { useLocation } from '@/hooks/useLocation';
 import { HAIR_TYPE_SHORT_LABELS } from '@/types/hairType';
 import { SKIN_TYPE_SHORT_LABELS } from '@/types/skinType';
+import { AGE_RANGE_LABELS, LIFESTYLE_LABELS, LOCATION_LABELS } from '@/types/userProfile';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
@@ -13,13 +17,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function HomeScreen() {
   const { skinType, isLoading: isLoadingSkin, loadSkinType } = useSkinType();
   const { hairType, isLoading: isLoadingHair, loadHairType } = useHairType();
+  const { age, isLoading: isLoadingAge, loadAge } = useAge();
+  const { lifestyle, isLoading: isLoadingLifestyle, loadLifestyle } = useLifestyle();
+  const { location, isLoading: isLoadingLocation, loadLocation } = useLocation();
 
   // Обновляем данные при возврате на экран
   useFocusEffect(
     useCallback(() => {
       loadSkinType();
       loadHairType();
-    }, [loadSkinType, loadHairType])
+      loadAge();
+      loadLifestyle();
+      loadLocation();
+    }, [loadSkinType, loadHairType, loadAge, loadLifestyle, loadLocation])
   );
 
   return (
@@ -101,6 +111,33 @@ export default function HomeScreen() {
             subtitle={hairType ? HAIR_TYPE_SHORT_LABELS[hairType] : 'Не настроено'}
             onPress={() => router.push('/hair-type-quiz')}
             showPrompt={!hairType && !isLoadingHair}
+            isLast={false}
+          />
+          <SettingsItem
+            icon="calendar-outline"
+            iconColor="#8E8E93"
+            title="Возраст"
+            subtitle={age ? AGE_RANGE_LABELS[age] : 'Не указан'}
+            onPress={() => router.push('/age-quiz')}
+            showPrompt={!age && !isLoadingAge}
+            isLast={false}
+          />
+          <SettingsItem
+            icon="fitness-outline"
+            iconColor="#8E8E93"
+            title="Образ жизни"
+            subtitle={lifestyle ? LIFESTYLE_LABELS[lifestyle] : 'Не указан'}
+            onPress={() => router.push('/lifestyle-quiz')}
+            showPrompt={!lifestyle && !isLoadingLifestyle}
+            isLast={false}
+          />
+          <SettingsItem
+            icon="location-outline"
+            iconColor="#8E8E93"
+            title="Локация"
+            subtitle={location ? LOCATION_LABELS[location] : 'Не указана'}
+            onPress={() => router.push('/location-quiz')}
+            showPrompt={!location && !isLoadingLocation}
             isLast={true}
           />
         </View>

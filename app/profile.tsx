@@ -2,8 +2,12 @@ import { ChevronArrow } from '@/components/ChevronArrow';
 import { APPLE_TEXT_STYLES } from '@/constants/fonts';
 import { useHairType } from '@/hooks/useHairType';
 import { useSkinType } from '@/hooks/useSkinType';
+import { useAge } from '@/hooks/useAge';
+import { useLifestyle } from '@/hooks/useLifestyle';
+import { useLocation } from '@/hooks/useLocation';
 import { HAIR_TYPE_LABELS } from '@/types/hairType';
 import { SKIN_TYPE_LABELS } from '@/types/skinType';
+import { AGE_RANGE_LABELS, LIFESTYLE_LABELS, LOCATION_LABELS } from '@/types/userProfile';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
@@ -13,13 +17,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function ProfileScreen() {
   const { skinType, isLoading: isLoadingSkin, loadSkinType } = useSkinType();
   const { hairType, isLoading: isLoadingHair, loadHairType } = useHairType();
+  const { age, isLoading: isLoadingAge, loadAge } = useAge();
+  const { lifestyle, isLoading: isLoadingLifestyle, loadLifestyle } = useLifestyle();
+  const { location, isLoading: isLoadingLocation, loadLocation } = useLocation();
 
   // Обновляем данные при возврате на экран
   useFocusEffect(
     useCallback(() => {
       loadSkinType();
       loadHairType();
-    }, [loadSkinType, loadHairType])
+      loadAge();
+      loadLifestyle();
+      loadLocation();
+    }, [loadSkinType, loadHairType, loadAge, loadLifestyle, loadLocation])
   );
 
   return (
@@ -128,8 +138,101 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {/* Additional Info Section */}
+        <View style={styles.section}>
+          <Text style={[APPLE_TEXT_STYLES.caption1, styles.sectionHeader]}>ДОПОЛНИТЕЛЬНО</Text>
+          <View style={styles.sectionContent}>
+            <TouchableOpacity
+              style={styles.listItem}
+              onPress={() => router.push('/age-quiz')}
+              activeOpacity={0.6}
+            >
+              <View style={styles.listIcon}>
+                <Ionicons name="calendar-outline" size={24} color="#007AFF" />
+              </View>
+              <View style={styles.listItemContent}>
+                <Text style={[APPLE_TEXT_STYLES.body, styles.listItemTitle]}>
+                  Возраст
+                </Text>
+                {isLoadingAge ? (
+                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
+                    Загрузка...
+                  </Text>
+                ) : age ? (
+                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
+                    {AGE_RANGE_LABELS[age]}
+                  </Text>
+                ) : (
+                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
+                    Не указан
+                  </Text>
+                )}
+              </View>
+              <ChevronArrow color="#C7C7CC" size={20} direction="right" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.listItem}
+              onPress={() => router.push('/lifestyle-quiz')}
+              activeOpacity={0.6}
+            >
+              <View style={styles.listIcon}>
+                <Ionicons name="fitness-outline" size={24} color="#007AFF" />
+              </View>
+              <View style={styles.listItemContent}>
+                <Text style={[APPLE_TEXT_STYLES.body, styles.listItemTitle]}>
+                  Образ жизни
+                </Text>
+                {isLoadingLifestyle ? (
+                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
+                    Загрузка...
+                  </Text>
+                ) : lifestyle ? (
+                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
+                    {LIFESTYLE_LABELS[lifestyle]}
+                  </Text>
+                ) : (
+                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
+                    Не указан
+                  </Text>
+                )}
+              </View>
+              <ChevronArrow color="#C7C7CC" size={20} direction="right" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.listItem, styles.listItemLast]}
+              onPress={() => router.push('/location-quiz')}
+              activeOpacity={0.6}
+            >
+              <View style={styles.listIcon}>
+                <Ionicons name="location-outline" size={24} color="#007AFF" />
+              </View>
+              <View style={styles.listItemContent}>
+                <Text style={[APPLE_TEXT_STYLES.body, styles.listItemTitle]}>
+                  Локация
+                </Text>
+                {isLoadingLocation ? (
+                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
+                    Загрузка...
+                  </Text>
+                ) : location ? (
+                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
+                    {LOCATION_LABELS[location]}
+                  </Text>
+                ) : (
+                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
+                    Не указана
+                  </Text>
+                )}
+              </View>
+              <ChevronArrow color="#C7C7CC" size={20} direction="right" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Summary Card */}
-        {(skinType || hairType) && (
+        {(skinType || hairType || age || lifestyle || location) && (
           <View style={styles.summarySection}>
             <View style={styles.summaryCard}>
               <View style={styles.summaryHeader}>
@@ -139,13 +242,13 @@ export default function ProfileScreen() {
                 </Text>
               </View>
               <Text style={[APPLE_TEXT_STYLES.body, styles.summaryText]}>
-                {skinType && hairType
-                  ? `Ваш тип кожи: ${SKIN_TYPE_LABELS[skinType].toLowerCase()}. Ваш тип волос: ${HAIR_TYPE_LABELS[hairType].toLowerCase()}.`
-                  : skinType
-                  ? `Ваш тип кожи: ${SKIN_TYPE_LABELS[skinType].toLowerCase()}.`
-                  : hairType
-                  ? `Ваш тип волос: ${HAIR_TYPE_LABELS[hairType].toLowerCase()}.`
-                  : 'Настройте свой профиль для персонализированных рекомендаций.'}
+                {[
+                  skinType && `Тип кожи: ${SKIN_TYPE_LABELS[skinType].toLowerCase()}`,
+                  hairType && `Тип волос: ${HAIR_TYPE_LABELS[hairType].toLowerCase()}`,
+                  age && `Возраст: ${AGE_RANGE_LABELS[age]}`,
+                  lifestyle && `Образ жизни: ${LIFESTYLE_LABELS[lifestyle].toLowerCase()}`,
+                  location && `Локация: ${LOCATION_LABELS[location]}`,
+                ].filter(Boolean).join('. ')}.
               </Text>
               <Text style={[APPLE_TEXT_STYLES.caption1, styles.summarySubtext]}>
                 Эти данные используются для персонализированных рекомендаций при анализе продуктов.
@@ -155,7 +258,8 @@ export default function ProfileScreen() {
         )}
 
         {/* Empty State */}
-        {!skinType && !hairType && !isLoadingSkin && !isLoadingHair && (
+        {!skinType && !hairType && !age && !lifestyle && !location &&
+         !isLoadingSkin && !isLoadingHair && !isLoadingAge && !isLoadingLifestyle && !isLoadingLocation && (
           <View style={styles.emptySection}>
             <View style={styles.emptyCard}>
               <Ionicons name="person-circle-outline" size={48} color="#8E8E93" />

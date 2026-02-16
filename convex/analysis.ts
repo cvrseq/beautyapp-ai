@@ -15,14 +15,18 @@ type ProductResult =
     };
 
 export const analyzeProduct = action({
-  args: { 
+  args: {
     imageBase64: v.string(),
     skinType: v.optional(v.union(
       v.literal('dry'),
       v.literal('oily'),
       v.literal('combination'),
       v.literal('normal'),
-      v.literal('sensitive')
+      v.literal('sensitive'),
+      v.literal('mature'),
+      v.literal('acne_prone'),
+      v.literal('dehydrated'),
+      v.literal('pigmented')
     )),
     hairType: v.optional(v.union(
       v.literal('straight'),
@@ -33,6 +37,31 @@ export const analyzeProduct = action({
       v.literal('dry'),
       v.literal('normal'),
       v.literal('damaged')
+    )),
+    age: v.optional(v.union(
+      v.literal('18-24'),
+      v.literal('25-34'),
+      v.literal('35-44'),
+      v.literal('45-54'),
+      v.literal('55+')
+    )),
+    lifestyle: v.optional(v.union(
+      v.literal('active'),
+      v.literal('sedentary'),
+      v.literal('outdoor'),
+      v.literal('stress'),
+      v.literal('balanced')
+    )),
+    location: v.optional(v.union(
+      v.literal('moscow'),
+      v.literal('saint_petersburg'),
+      v.literal('novosibirsk'),
+      v.literal('yekaterinburg'),
+      v.literal('kazan'),
+      v.literal('sochi'),
+      v.literal('vladivostok'),
+      v.literal('other_humid'),
+      v.literal('other_dry')
     ))
   },
   handler: async (ctx, args): Promise<ProductResult> => {
@@ -41,6 +70,9 @@ export const analyzeProduct = action({
       imageBase64: args.imageBase64,
       skinType: args.skinType,
       hairType: args.hairType,
+      age: args.age,
+      lifestyle: args.lifestyle,
+      location: args.location,
     });
 
     // Type guard для aiResult

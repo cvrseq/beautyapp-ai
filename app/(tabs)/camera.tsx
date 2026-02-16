@@ -1,6 +1,9 @@
 import { api } from '@/convex/_generated/api';
 import { useSkinType } from '@/hooks/useSkinType';
 import { useHairType } from '@/hooks/useHairType';
+import { useAge } from '@/hooks/useAge';
+import { useLifestyle } from '@/hooks/useLifestyle';
+import { useLocation } from '@/hooks/useLocation';
 import { IMAGE_PROCESSING } from '@/constants/thresholds';
 import { APPLE_TEXT_STYLES } from '@/constants/fonts';
 import { useAction } from 'convex/react';
@@ -26,6 +29,9 @@ export default function CameraScreen() {
   const analyze = useAction(api.analysis.analyzeProduct);
   const { skinType } = useSkinType();
   const { hairType } = useHairType();
+  const { age } = useAge();
+  const { lifestyle } = useLifestyle();
+  const { location } = useLocation();
 
   // Принудительно запрашиваем права
   useEffect(() => {
@@ -125,13 +131,38 @@ export default function CameraScreen() {
 
         if (manipulated.base64) {
           console.log('[Camera] Image processed, base64 length:', manipulated.base64.length);
-          console.log('[Camera] Sending to AI with skinType:', skinType, 'hairType:', hairType);
+          console.log('[Camera] Sending to AI with skinType:', skinType, 'hairType:', hairType, 'age:', age, 'lifestyle:', lifestyle, 'location:', location);
 
-          const result = await analyze({
-            imageBase64: manipulated.base64,
-            skinType: skinType || undefined,
-            hairType: hairType || undefined,
-          });
+          // Retry logic for connection issues
+          let result = null;
+          let lastError = null;
+          const MAX_RETRIES = 2;
+
+          for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+              console.log(`[Camera] Attempt ${attempt}/${MAX_RETRIES}`);
+              result = await analyze({
+                imageBase64: manipulated.base64,
+                skinType: skinType || undefined,
+                hairType: hairType || undefined,
+                age: age || undefined,
+                lifestyle: lifestyle || undefined,
+                location: location || undefined,
+              });
+              break; // Success, exit retry loop
+            } catch (retryError) {
+              lastError = retryError;
+              console.error(`[Camera] Attempt ${attempt} failed:`, retryError);
+              if (attempt < MAX_RETRIES) {
+                // Wait before retry
+                await new Promise(resolve => setTimeout(resolve, 1500));
+              }
+            }
+          }
+
+          if (!result && lastError) {
+            throw lastError;
+          }
 
           console.log('[Camera] AI result received:', result);
 
@@ -164,8 +195,18 @@ export default function CameraScreen() {
         console.error('[Camera] Error name:', error.name);
         console.error('[Camera] Error message:', error.message);
         console.error('[Camera] Error stack:', error.stack);
+
+        // User-friendly error messages
+        if (error.message.includes('Connection lost') || error.message.includes('WebSocket')) {
+          setErrorMessage('Потеряно соединение с сервером. Проверьте интернет и попробуйте ещё раз.');
+        } else if (error.message.includes('timeout')) {
+          setErrorMessage('Превышено время ожидания. Попробуйте ещё раз.');
+        } else {
+          setErrorMessage('Произошла ошибка. Попробуйте ещё раз.');
+        }
+      } else {
+        setErrorMessage('Неизвестная ошибка. Попробуйте ещё раз.');
       }
-      setErrorMessage(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}. Попробуйте ещё раз.`);
     } finally {
       setIsAnalyzing(false);
     }

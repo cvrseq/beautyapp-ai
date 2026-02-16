@@ -37,14 +37,18 @@ function normalizeCategory(value: any): ProductCategory {
 }
 
 export const identifyProduct = internalAction({
-  args: { 
+  args: {
     imageBase64: v.string(),
     skinType: v.optional(v.union(
       v.literal('dry'),
       v.literal('oily'),
       v.literal('combination'),
       v.literal('normal'),
-      v.literal('sensitive')
+      v.literal('sensitive'),
+      v.literal('mature'),
+      v.literal('acne_prone'),
+      v.literal('dehydrated'),
+      v.literal('pigmented')
     )),
     hairType: v.optional(v.union(
       v.literal('straight'),
@@ -55,6 +59,31 @@ export const identifyProduct = internalAction({
       v.literal('dry'),
       v.literal('normal'),
       v.literal('damaged')
+    )),
+    age: v.optional(v.union(
+      v.literal('18-24'),
+      v.literal('25-34'),
+      v.literal('35-44'),
+      v.literal('45-54'),
+      v.literal('55+')
+    )),
+    lifestyle: v.optional(v.union(
+      v.literal('active'),
+      v.literal('sedentary'),
+      v.literal('outdoor'),
+      v.literal('stress'),
+      v.literal('balanced')
+    )),
+    location: v.optional(v.union(
+      v.literal('moscow'),
+      v.literal('saint_petersburg'),
+      v.literal('novosibirsk'),
+      v.literal('yekaterinburg'),
+      v.literal('kazan'),
+      v.literal('sochi'),
+      v.literal('vladivostok'),
+      v.literal('other_humid'),
+      v.literal('other_dry')
     ))
   },
   handler: async (_ctx, args) => {
@@ -94,14 +123,70 @@ export const identifyProduct = internalAction({
                     'Ты — эксперт косметики.',
                     'Определи бренд, название, категорию продукта и проанализируй состав.',
                     'Сначала определи категорию продукта: "skin" (для лица/кожи), "hair" (для волос), "mixed" (универсальный), "unknown" (не определена).',
-                    args.skinType 
-                      ? `Учитывай, что у пользователя ${args.skinType === 'dry' ? 'сухая' : args.skinType === 'oily' ? 'жирная' : args.skinType === 'combination' ? 'комбинированная' : args.skinType === 'normal' ? 'нормальная' : 'чувствительная'} кожа.`
+                    // Skin type context
+                    args.skinType
+                      ? `Учитывай, что у пользователя ${
+                          args.skinType === 'dry' ? 'сухая' :
+                          args.skinType === 'oily' ? 'жирная' :
+                          args.skinType === 'combination' ? 'комбинированная' :
+                          args.skinType === 'normal' ? 'нормальная' :
+                          args.skinType === 'sensitive' ? 'чувствительная' :
+                          args.skinType === 'mature' ? 'возрастная' :
+                          args.skinType === 'acne_prone' ? 'склонная к акне' :
+                          args.skinType === 'dehydrated' ? 'обезвоженная' :
+                          'с пигментацией'
+                        } кожа.`
                       : '',
+                    // Hair type context
                     args.hairType
-                      ? `Учитывай, что у пользователя ${args.hairType === 'straight' ? 'прямые' : args.hairType === 'wavy' ? 'волнистые' : args.hairType === 'curly' ? 'кудрявые' : args.hairType === 'coily' ? 'кучерявые' : args.hairType === 'oily' ? 'жирные' : args.hairType === 'dry' ? 'сухие' : args.hairType === 'normal' ? 'нормальные' : 'повреждённые'} волосы.`
+                      ? `Учитывай, что у пользователя ${
+                          args.hairType === 'straight' ? 'прямые' :
+                          args.hairType === 'wavy' ? 'волнистые' :
+                          args.hairType === 'curly' ? 'кудрявые' :
+                          args.hairType === 'coily' ? 'кучерявые' :
+                          args.hairType === 'oily' ? 'жирные' :
+                          args.hairType === 'dry' ? 'сухие' :
+                          args.hairType === 'normal' ? 'нормальные' :
+                          'повреждённые'
+                        } волосы.`
+                      : '',
+                    // Age context
+                    args.age
+                      ? `Возраст пользователя: ${args.age} лет. ${
+                          args.age === '18-24' ? 'Молодая кожа, нужна профилактика и легкое увлажнение.' :
+                          args.age === '25-34' ? 'Появляются первые признаки старения, важны антиоксиданты.' :
+                          args.age === '35-44' ? 'Нужен активный антивозрастной уход, ретиноиды, пептиды.' :
+                          args.age === '45-54' ? 'Требуется интенсивный уход, гиалуроновая кислота, укрепление.' :
+                          'Зрелая кожа требует насыщенного питания и восстановления.'
+                        }`
+                      : '',
+                    // Lifestyle context
+                    args.lifestyle
+                      ? `Образ жизни: ${
+                          args.lifestyle === 'active' ? 'активный (спорт, потоотделение) - нужны легкие текстуры, защита от пота.' :
+                          args.lifestyle === 'sedentary' ? 'сидячий (офис) - кожа может быть обезвоженной от кондиционера.' :
+                          args.lifestyle === 'outdoor' ? 'много времени на улице - важна SPF защита и антиоксиданты.' :
+                          args.lifestyle === 'stress' ? 'высокий стресс - кожа склонна к воспалениям, нужны успокаивающие компоненты.' :
+                          'сбалансированный - стандартный уход.'
+                        }`
+                      : '',
+                    // Location/climate context
+                    args.location
+                      ? `Локация: ${
+                          args.location === 'moscow' ? 'Москва (континентальный климат, средняя влажность, высокое загрязнение воздуха - нужна защита от pollution).' :
+                          args.location === 'saint_petersburg' ? 'Санкт-Петербург (высокая влажность, мало солнца, морской климат - нужно увлажнение, витамин D, защита от влажности).' :
+                          args.location === 'novosibirsk' ? 'Новосибирск (резко континентальный, сухой воздух, холодные зимы - нужна защита от мороза и интенсивное увлажнение).' :
+                          args.location === 'yekaterinburg' ? 'Екатеринбург (континентальный, сухой - нужно глубокое увлажнение).' :
+                          args.location === 'kazan' ? 'Казань (умеренный климат, средняя влажность).' :
+                          args.location === 'sochi' ? 'Сочи (субтропики, высокая влажность, много солнца - обязательна SPF защита, легкие текстуры).' :
+                          args.location === 'vladivostok' ? 'Владивосток (муссонный, влажный - защита от влажности и ветра).' :
+                          args.location === 'other_humid' ? 'Влажный климат - легкие текстуры, матирующие средства.' :
+                          'Сухой климат - интенсивное увлажнение, защитные кремы.'
+                        }`
                       : '',
                     'Верни ТОЛЬКО чистый JSON (без markdown ```json) в формате:',
-                    '{brand, name, confidence, category: "skin"|"hair"|"mixed"|"unknown", analysis: {pros: [массив строк], cons: [массив строк], hazards: "low"|"medium"|"high", ingredients: [{name, status: "green"|"yellow"|"red", desc}]}, skinCompatibility: {dry: {status: "good"|"bad"|"neutral", score: число от 0 до 100}, oily: {status, score}, combination: {status, score}, normal: {status, score}, sensitive: {status, score}}, hairCompatibility: {straight: {status: "good"|"bad"|"neutral", score: число от 0 до 100}, wavy: {status, score}, curly: {status, score}, coily: {status, score}, oily: {status, score}, dry: {status, score}, normal: {status, score}, damaged: {status, score}}}.',
+                    '{brand, name, confidence, category: "skin"|"hair"|"mixed"|"unknown", analysis: {pros: [массив строк], cons: [массив строк], hazards: "low"|"medium"|"high", ingredients: [{name, status: "green"|"yellow"|"red", desc}]}, skinCompatibility: {dry: {status: "good"|"bad"|"neutral", score: 0-100}, oily: {status, score}, combination: {status, score}, normal: {status, score}, sensitive: {status, score}, mature: {status, score}, acne_prone: {status, score}, dehydrated: {status, score}, pigmented: {status, score}}, hairCompatibility: {straight: {status: "good"|"bad"|"neutral", score: 0-100}, wavy: {status, score}, curly: {status, score}, coily: {status, score}, oily: {status, score}, dry: {status, score}, normal: {status, score}, damaged: {status, score}}}.',
+                    'Типы кожи: dry (сухая), oily (жирная), combination (комбинированная), normal (нормальная), sensitive (чувствительная), mature (возрастная - нужны ретиноиды, пептиды), acne_prone (склонная к акне - нужны BHA/салициловая кислота, ниацинамид), dehydrated (обезвоженная - нужна гиалуроновая кислота, сквалан), pigmented (с пигментацией - нужны витамин C, арбутин, ниацинамид).',
                     'ВАЖНО: hazards должен быть СТРОКОЙ "low" (низкий риск), "medium" (средний риск) или "high" (высокий риск), НЕ массивом!',
                     'В skinCompatibility (если category = "skin" или "mixed") для каждого типа кожи укажи:',
                     `- status: "good" (хорошо подходит, score >= ${SKIN_COMPATIBILITY_SCORES.GOOD_MIN}), "neutral" (нейтрально, ${SKIN_COMPATIBILITY_SCORES.NEUTRAL_MIN}-${SKIN_COMPATIBILITY_SCORES.GOOD_MIN - 1}), "bad" (не подходит, < ${SKIN_COMPATIBILITY_SCORES.NEUTRAL_MIN})`,

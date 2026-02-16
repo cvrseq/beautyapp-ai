@@ -30,6 +30,10 @@ export const saveProduct = internalMutation({
       combination: v.optional(v.object({ status: v.string(), score: v.number() })),
       normal: v.optional(v.object({ status: v.string(), score: v.number() })),
       sensitive: v.optional(v.object({ status: v.string(), score: v.number() })),
+      mature: v.optional(v.object({ status: v.string(), score: v.number() })),
+      acne_prone: v.optional(v.object({ status: v.string(), score: v.number() })),
+      dehydrated: v.optional(v.object({ status: v.string(), score: v.number() })),
+      pigmented: v.optional(v.object({ status: v.string(), score: v.number() })),
     })),
     hairCompatibility: v.optional(v.object({
       straight: v.optional(v.object({ status: v.string(), score: v.number() })),
