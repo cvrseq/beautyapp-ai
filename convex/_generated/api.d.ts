@@ -10,6 +10,8 @@
 
 import type * as ai_logic from "../ai_logic.js";
 import type * as analysis from "../analysis.js";
+import type * as auth from "../auth.js";
+import type * as comments from "../comments.js";
 import type * as constants from "../constants.js";
 import type * as migrations from "../migrations.js";
 import type * as myfunc from "../myfunc.js";
@@ -26,6 +28,8 @@ import type {
 declare const fullApi: ApiFromModules<{
   ai_logic: typeof ai_logic;
   analysis: typeof analysis;
+  auth: typeof auth;
+  comments: typeof comments;
   constants: typeof constants;
   migrations: typeof migrations;
   myfunc: typeof myfunc;

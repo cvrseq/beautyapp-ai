@@ -1,19 +1,24 @@
 import { ChevronArrow } from '@/components/ChevronArrow';
+import { CommentSection } from '@/components/comments/CommentSection';
+import { PerfumeResultView } from '@/components/perfume/PerfumeResultView';
 import { APPLE_TEXT_STYLES } from '@/constants/fonts';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
 import { useHairType } from '@/hooks/useHairType';
 import { useSkinType } from '@/hooks/useSkinType';
+import { useTheme, Theme } from '@/hooks/useTheme';
 import { HAIR_TYPE_LABELS } from '@/types/hairType';
 import { CosmeticAnalysis, Ingredient, IngredientStatus } from '@/types/products';
 import { SKIN_TYPE_LABELS } from '@/types/skinType';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from 'convex/react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -26,6 +31,8 @@ export default function ProductResultScreen() {
   const { id } = useLocalSearchParams();
   const { skinType } = useSkinType();
   const { hairType } = useHairType();
+  const { theme } = useTheme();
+  const styles = useMemo(() => createThemedStyles(theme), [theme]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
   const [compatibilityModal, setCompatibilityModal] = useState<{
@@ -35,8 +42,20 @@ export default function ProductResultScreen() {
     status: string;
     score: number;
   } | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const commentsLayoutY = useRef<number>(0);
 
-  // Получаем данные
+  const handleCommentInputFocus = useCallback(() => {
+    // Прокручиваем к секции комментариев при фокусе на инпуте
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({
+        y: commentsLayoutY.current - 100,
+        animated: true,
+      });
+    }, 300);
+  }, []);
+
+  // Fetch product data
   const product = useQuery(api.products.getById, id ? { id: id as Id<'products'> } : 'skip');
 
   if (!id) {
@@ -44,10 +63,10 @@ export default function ProductResultScreen() {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.errorContainer}>
           <View style={styles.errorIcon}>
-            <Ionicons name="alert-circle-outline" size={40} color="#8E8E93" />
+            <Ionicons name="alert-circle-outline" size={40} color={theme.textSecondary} />
           </View>
           <Text style={[APPLE_TEXT_STYLES.title2, styles.errorTitle]} numberOfLines={2}>
-            Что‑то пошло не так
+            Что-то пошло не так
           </Text>
           <Text style={[APPLE_TEXT_STYLES.body, styles.errorText]} numberOfLines={3}>
             Не удалось определить продукт. Попробуйте отсканировать ещё раз.
@@ -65,12 +84,12 @@ export default function ProductResultScreen() {
     );
   }
 
-  // Состояние загрузки
+  // Loading state
   if (!product) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#000" />
+          <ActivityIndicator size="large" color={theme.text} />
           <Text style={[APPLE_TEXT_STYLES.body, styles.loadingText]}>
             ИИ анализирует состав...
           </Text>
@@ -79,7 +98,64 @@ export default function ProductResultScreen() {
     );
   }
 
-  // Парсим JSON с анализом
+  // Perfume display
+  if (product.category === 'perfume' && product.perfumeData) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoidingView}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
+          <View style={styles.navBar}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace('/');
+                }
+              }}
+              activeOpacity={0.7}
+            >
+              <ChevronArrow color={theme.primary} size={20} direction="left" />
+              <Text style={[APPLE_TEXT_STYLES.body, styles.backButtonText]}>
+                Beauty AI
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.scrollView}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <PerfumeResultView
+              productName={product.name}
+              brand={product.brand}
+              perfumeData={product.perfumeData}
+            />
+
+            <View
+              style={styles.commentsContainer}
+              onLayout={(event) => {
+                commentsLayoutY.current = event.nativeEvent.layout.y;
+              }}
+            >
+              <CommentSection
+                productId={id as Id<'products'>}
+                onInputFocus={handleCommentInputFocus}
+              />
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    );
+  }
+
+  // Parse analysis JSON
   let analysis: CosmeticAnalysis = { pros: [], cons: [], hazards: 'low', ingredients: [] };
   try {
     const parsed = typeof product.ingredientsAnalysis === 'string'
@@ -97,7 +173,7 @@ export default function ProductResultScreen() {
     console.error('Failed to parse ingredientsAnalysis', e);
   }
 
-  // Парсим совместимость с типом волос
+  // Parse hair type compatibility
   let hairCompatibility = product.hairTypeCompatibility;
   if (hairCompatibility && typeof hairCompatibility === 'string') {
     try {
@@ -108,7 +184,7 @@ export default function ProductResultScreen() {
     }
   }
 
-  // Парсим совместимость с типом кожи
+  // Parse skin type compatibility
   let skinCompatibility = product.skinTypeCompatibility;
   if (skinCompatibility && typeof skinCompatibility === 'string') {
     try {
@@ -119,33 +195,31 @@ export default function ProductResultScreen() {
     }
   }
 
-  // Функция для получения цвета иконки по статусу
+  // Get icon color by status
   const getIconColor = (status: IngredientStatus): string => {
     switch (status) {
       case 'green':
-        return '#34C759';
+        return theme.success;
       case 'yellow':
-        return '#FF9500';
+        return theme.warning;
       case 'red':
-        return '#FF3B30';
+        return theme.error;
       default:
-        return '#8E8E93';
+        return theme.textSecondary;
     }
   };
 
-  // Функция для получения подходящей иконки для ингредиента
+  // Get appropriate icon for ingredient
   const getIngredientIcon = (ingredient: Ingredient): keyof typeof Ionicons.glyphMap => {
     const name = ingredient.name.toLowerCase();
     const desc = ingredient.desc.toLowerCase();
 
-    // Увлажняющие компоненты
-    if (name.includes('глицерин') || name.includes('glycerin') || 
+    if (name.includes('глицерин') || name.includes('glycerin') ||
         name.includes('гиалурон') || name.includes('hyaluron') ||
         desc.includes('увлажн') || desc.includes('влагу')) {
       return 'water';
     }
 
-    // Антиоксиданты и витамины
     if (name.includes('витамин') || name.includes('vitamin') ||
         name.includes('токоферол') || name.includes('tocopherol') ||
         name.includes('аскорби') || name.includes('ascorbic') ||
@@ -153,7 +227,6 @@ export default function ProductResultScreen() {
       return 'leaf';
     }
 
-    // Кислоты (AHA/BHA)
     if (name.includes('кислот') || name.includes('acid') ||
         name.includes('салицилов') || name.includes('salicylic') ||
         name.includes('гликолев') || name.includes('glycolic') ||
@@ -161,48 +234,41 @@ export default function ProductResultScreen() {
       return 'flask';
     }
 
-    // Масла и эмоленты
     if (name.includes('масло') || name.includes('oil') ||
         name.includes('сквалан') || name.includes('squalane') ||
         desc.includes('эмолент') || desc.includes('масло')) {
       return 'water';
     }
 
-    // Пептиды и белки
     if (name.includes('пептид') || name.includes('peptide') ||
         name.includes('белок') || name.includes('protein') ||
         desc.includes('пептид') || desc.includes('белок')) {
       return 'fitness';
     }
 
-    // Керамиды
     if (name.includes('керамид') || name.includes('ceramide') ||
         desc.includes('керамид')) {
       return 'shield-checkmark';
     }
 
-    // Консерванты и стабилизаторы
     if (name.includes('парабен') || name.includes('paraben') ||
         name.includes('фенокси') || name.includes('phenoxy') ||
         desc.includes('консервант') || desc.includes('стабилизатор')) {
       return 'lock-closed';
     }
 
-    // Спирты
     if (name.includes('спирт') || name.includes('alcohol') ||
         name.includes('этанол') || name.includes('ethanol') ||
         desc.includes('спирт')) {
       return 'flame';
     }
 
-    // Солнцезащитные компоненты
     if (name.includes('оксид') || name.includes('oxide') ||
         name.includes('цинк') || name.includes('zinc') ||
         desc.includes('spf') || desc.includes('uv') || desc.includes('солнце')) {
       return 'sunny';
     }
 
-    // По умолчанию - по статусу
     switch (ingredient.status) {
       case 'green':
         return 'checkmark-circle';
@@ -215,19 +281,19 @@ export default function ProductResultScreen() {
     }
   };
 
-  // Функция для генерации полного описания совместимости
+  // Get compatibility description
   const getCompatibilityDescription = (
     type: 'skin' | 'hair',
     status: string,
     score: number
   ): string => {
-    const typeLabel = type === 'skin' 
+    const typeLabel = type === 'skin'
       ? SKIN_TYPE_LABELS[skinType || 'normal']
       : HAIR_TYPE_LABELS[hairType || 'normal'];
-    
+
     if (status === 'good' && score >= 70) {
       if (type === 'skin') {
-        const skinSpecific = skinType === 'dry' 
+        const skinSpecific = skinType === 'dry'
           ? 'Продукт содержит увлажняющие компоненты, которые помогают удерживать влагу и предотвращают обезвоживание. Идеально подходит для сухой кожи, обеспечивая необходимую гидратацию и защиту.'
           : skinType === 'oily'
           ? 'Продукт помогает контролировать выработку себума и предотвращает появление излишней жирности. Содержит компоненты, которые матируют кожу и поддерживают оптимальный баланс.'
@@ -255,27 +321,27 @@ export default function ProductResultScreen() {
     }
   };
 
-  // Функция для получения стиля совместимости
+  // Get compatibility style
   const getCompatibilityStyle = (status: string, score: number) => {
     if (status === 'bad' || score < 40) {
       return {
-        iconColor: '#FF3B30',
+        iconColor: theme.error,
         iconName: 'alert-circle' as keyof typeof Ionicons.glyphMap,
-        bgColor: '#FF3B30',
+        bgColor: theme.error,
         label: 'Не рекомендуется',
       };
     } else if (status === 'good' || score >= 70) {
       return {
-        iconColor: '#34C759',
+        iconColor: theme.success,
         iconName: 'checkmark-circle' as keyof typeof Ionicons.glyphMap,
-        bgColor: '#34C759',
+        bgColor: theme.success,
         label: 'Отлично подходит',
       };
     } else {
       return {
-        iconColor: '#FF9500',
+        iconColor: theme.warning,
         iconName: 'help-circle' as keyof typeof Ionicons.glyphMap,
-        bgColor: '#FF9500',
+        bgColor: theme.warning,
         label: 'Нейтрально',
       };
     }
@@ -283,32 +349,42 @@ export default function ProductResultScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Navigation Bar */}
-      <View style={styles.navBar}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => {
-            if (router.canGoBack()) {
-              router.back();
-            } else {
-              router.replace('/');
-            }
-          }}
-          activeOpacity={0.7}
-        >
-          <ChevronArrow color="#007AFF" size={20} direction="left" />
-          <Text style={[APPLE_TEXT_STYLES.body, styles.backButtonText]}>
-            Beauty AI
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoidingView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        {/* Navigation Bar */}
+        <View style={styles.navBar}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace('/');
+              }
+            }}
+            activeOpacity={0.7}
+          >
+            <ChevronArrow color={theme.primary} size={20} direction="left" />
+            <Text style={[APPLE_TEXT_STYLES.body, styles.backButtonText]}>
+              Beauty AI
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
         {/* Header */}
         <View style={styles.headerSection}>
           <View style={styles.headerCard}>
             <View style={styles.headerIcon}>
-              <Ionicons name="flask-outline" size={48} color="#FFFFFF" />
+              <Ionicons name="flask-outline" size={48} color={theme.textInverse} />
             </View>
             <Text style={[APPLE_TEXT_STYLES.largeTitle, styles.headerTitle]}>
               {product.name}
@@ -316,8 +392,8 @@ export default function ProductResultScreen() {
             <Text style={[APPLE_TEXT_STYLES.callout, styles.headerDescription]}>
               Персонализированный анализ состава косметики для вашего типа кожи и волос. Оценка совместимости и детальная информация об ингредиентах.
             </Text>
-            <TouchableOpacity 
-              style={styles.learnMoreButton} 
+            <TouchableOpacity
+              style={styles.learnMoreButton}
               activeOpacity={0.7}
               onPress={() => setIsExpanded(!isExpanded)}
             >
@@ -334,7 +410,7 @@ export default function ProductResultScreen() {
             <View style={styles.expandedCard}>
               {/* Personalized Analysis Header */}
               <View style={styles.expandedHeader}>
-                <Ionicons name="person-circle-outline" size={24} color="#007AFF" />
+                <Ionicons name="person-circle-outline" size={24} color={theme.primary} />
                 <Text style={[APPLE_TEXT_STYLES.title3, styles.expandedTitle]}>
                   Персонализированный анализ
                 </Text>
@@ -353,9 +429,9 @@ export default function ProductResultScreen() {
                           Совместимость:
                         </Text>
                         <View style={styles.compatibilityValue}>
-                          <Text style={[APPLE_TEXT_STYLES.body, { 
-                            color: skinCompatibility[skinType].status === 'good' ? '#34C759' : 
-                                   skinCompatibility[skinType].status === 'bad' ? '#FF3B30' : '#FF9500'
+                          <Text style={[APPLE_TEXT_STYLES.body, {
+                            color: skinCompatibility[skinType].status === 'good' ? theme.success :
+                                   skinCompatibility[skinType].status === 'bad' ? theme.error : theme.warning
                           }]}>
                             {skinCompatibility[skinType].status === 'good' ? 'Отлично подходит' :
                              skinCompatibility[skinType].status === 'bad' ? 'Не рекомендуется' : 'Нейтрально'}
@@ -367,7 +443,7 @@ export default function ProductResultScreen() {
                       </View>
                     </View>
                   )}
-                  
+
                   {/* Ingredients for skin type */}
                   {analysis.ingredients.length > 0 && (
                     <View style={styles.ingredientsForType}>
@@ -380,7 +456,7 @@ export default function ProductResultScreen() {
                           .slice(0, 5)
                           .map((ing, idx) => (
                             <View key={idx} style={styles.ingredientTag}>
-                              <Ionicons name="checkmark-circle" size={16} color="#34C759" />
+                              <Ionicons name="checkmark-circle" size={16} color={theme.success} />
                               <Text style={[APPLE_TEXT_STYLES.caption1, styles.ingredientTagText]}>
                                 {ing.name}
                               </Text>
@@ -405,9 +481,9 @@ export default function ProductResultScreen() {
                           Совместимость:
                         </Text>
                         <View style={styles.compatibilityValue}>
-                          <Text style={[APPLE_TEXT_STYLES.body, { 
-                            color: hairCompatibility[hairType].status === 'good' ? '#34C759' : 
-                                   hairCompatibility[hairType].status === 'bad' ? '#FF3B30' : '#FF9500'
+                          <Text style={[APPLE_TEXT_STYLES.body, {
+                            color: hairCompatibility[hairType].status === 'good' ? theme.success :
+                                   hairCompatibility[hairType].status === 'bad' ? theme.error : theme.warning
                           }]}>
                             {hairCompatibility[hairType].status === 'good' ? 'Отлично подходит' :
                              hairCompatibility[hairType].status === 'bad' ? 'Не рекомендуется' : 'Нейтрально'}
@@ -427,7 +503,7 @@ export default function ProductResultScreen() {
                 {analysis.pros.length > 0 && (
                   <View style={styles.prosConsBlock}>
                     <View style={styles.prosConsHeader}>
-                      <Ionicons name="checkmark-circle" size={20} color="#34C759" />
+                      <Ionicons name="checkmark-circle" size={20} color={theme.success} />
                       <Text style={[APPLE_TEXT_STYLES.headline, styles.prosConsTitle]}>
                         Преимущества
                       </Text>
@@ -446,7 +522,7 @@ export default function ProductResultScreen() {
                 {analysis.cons.length > 0 && (
                   <View style={styles.prosConsBlock}>
                     <View style={styles.prosConsHeader}>
-                      <Ionicons name="alert-circle" size={20} color="#FF9500" />
+                      <Ionicons name="alert-circle" size={20} color={theme.warning} />
                       <Text style={[APPLE_TEXT_STYLES.headline, styles.prosConsTitle]}>
                         Недостатки
                       </Text>
@@ -466,19 +542,19 @@ export default function ProductResultScreen() {
               {/* Safety Level */}
               <View style={styles.safetySection}>
                 <View style={styles.safetyHeader}>
-                  <Ionicons 
-                    name={analysis.hazards === 'low' ? 'shield-checkmark' : 
-                          analysis.hazards === 'medium' ? 'shield' : 'warning'} 
-                    size={20} 
-                    color={analysis.hazards === 'low' ? '#34C759' : 
-                           analysis.hazards === 'medium' ? '#FF9500' : '#FF3B30'} 
+                  <Ionicons
+                    name={analysis.hazards === 'low' ? 'shield-checkmark' :
+                          analysis.hazards === 'medium' ? 'shield' : 'warning'}
+                    size={20}
+                    color={analysis.hazards === 'low' ? theme.success :
+                           analysis.hazards === 'medium' ? theme.warning : theme.error}
                   />
                   <Text style={[APPLE_TEXT_STYLES.headline, styles.safetyTitle]}>
                     Уровень безопасности
                   </Text>
                 </View>
                 <Text style={[APPLE_TEXT_STYLES.body, styles.safetyText]}>
-                  {analysis.hazards === 'low' 
+                  {analysis.hazards === 'low'
                     ? 'Продукт имеет низкий уровень риска и безопасен для использования.'
                     : analysis.hazards === 'medium'
                     ? 'Продукт имеет средний уровень риска. Рекомендуется провести тест на аллергию перед использованием.'
@@ -490,7 +566,7 @@ export default function ProductResultScreen() {
               {analysis.ingredients.length > 0 && (
                 <View style={styles.detailedIngredientsSection}>
                   <View style={styles.detailedIngredientsHeader}>
-                    <Ionicons name="flask-outline" size={20} color="#007AFF" />
+                    <Ionicons name="flask-outline" size={20} color={theme.primary} />
                     <Text style={[APPLE_TEXT_STYLES.headline, styles.detailedIngredientsTitle]}>
                       Детальная информация об ингредиентах
                     </Text>
@@ -500,19 +576,19 @@ export default function ProductResultScreen() {
                   </Text>
                   <View style={styles.ingredientsStats}>
                     <View style={styles.statItem}>
-                      <Ionicons name="checkmark-circle" size={16} color="#34C759" />
+                      <Ionicons name="checkmark-circle" size={16} color={theme.success} />
                       <Text style={[APPLE_TEXT_STYLES.caption1, styles.statText]}>
                         Безопасные: {analysis.ingredients.filter(i => i.status === 'green').length}
                       </Text>
                     </View>
                     <View style={styles.statItem}>
-                      <Ionicons name="warning" size={16} color="#FF9500" />
+                      <Ionicons name="warning" size={16} color={theme.warning} />
                       <Text style={[APPLE_TEXT_STYLES.caption1, styles.statText]}>
                         Внимание: {analysis.ingredients.filter(i => i.status === 'yellow').length}
                       </Text>
                     </View>
                     <View style={styles.statItem}>
-                      <Ionicons name="alert-circle" size={16} color="#FF3B30" />
+                      <Ionicons name="alert-circle" size={16} color={theme.error} />
                       <Text style={[APPLE_TEXT_STYLES.caption1, styles.statText]}>
                         Риск: {analysis.ingredients.filter(i => i.status === 'red').length}
                       </Text>
@@ -528,17 +604,17 @@ export default function ProductResultScreen() {
         {skinType && skinCompatibility && (product.category === 'skin' || product.category === 'mixed' || !product.category) && (() => {
           const compatibility = skinCompatibility[skinType];
           if (!compatibility || typeof compatibility !== 'object') return null;
-          
+
           const status = compatibility.status || 'neutral';
           const score = typeof compatibility.score === 'number' ? compatibility.score : 50;
           const style = getCompatibilityStyle(status, score);
-          
+
           return (
             <View style={styles.section}>
               <Text style={[APPLE_TEXT_STYLES.caption1, styles.sectionHeader]}>СОВМЕСТИМОСТЬ</Text>
               <View style={styles.sectionContent}>
-                <TouchableOpacity 
-                  style={[styles.listItem, styles.listItemLast]} 
+                <TouchableOpacity
+                  style={[styles.listItem, styles.listItemLast]}
                   activeOpacity={0.6}
                   onPress={() => setCompatibilityModal({
                     visible: true,
@@ -549,17 +625,17 @@ export default function ProductResultScreen() {
                   })}
                 >
                   <View style={[styles.listIcon, { backgroundColor: style.bgColor }]}>
-                    <Ionicons name={style.iconName} size={24} color="#FFFFFF" />
+                    <Ionicons name={style.iconName} size={24} color={theme.textInverse} />
                   </View>
                   <View style={styles.listItemContent}>
                     <Text style={[APPLE_TEXT_STYLES.body, styles.listItemTitle]}>
                       {style.label}
                     </Text>
                     <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
-                      Для {SKIN_TYPE_LABELS[skinType].toLowerCase()} кожи • {score}%
+                      Для {SKIN_TYPE_LABELS[skinType].toLowerCase()} кожи - {score}%
                     </Text>
                   </View>
-                  <ChevronArrow color="#C7C7CC" size={20} direction="right" />
+                  <ChevronArrow color={theme.textTertiary} size={20} direction="right" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -570,17 +646,17 @@ export default function ProductResultScreen() {
         {hairType && hairCompatibility && (product.category === 'hair' || product.category === 'mixed' || !product.category) && (() => {
           const compatibility = hairCompatibility[hairType];
           if (!compatibility || typeof compatibility !== 'object') return null;
-          
+
           const status = compatibility.status || 'neutral';
           const score = typeof compatibility.score === 'number' ? compatibility.score : 50;
           const style = getCompatibilityStyle(status, score);
-          
+
           return (
             <View style={styles.section}>
               <Text style={[APPLE_TEXT_STYLES.caption1, styles.sectionHeader]}>СОВМЕСТИМОСТЬ</Text>
               <View style={styles.sectionContent}>
-                <TouchableOpacity 
-                  style={[styles.listItem, styles.listItemLast]} 
+                <TouchableOpacity
+                  style={[styles.listItem, styles.listItemLast]}
                   activeOpacity={0.6}
                   onPress={() => setCompatibilityModal({
                     visible: true,
@@ -591,17 +667,17 @@ export default function ProductResultScreen() {
                   })}
                 >
                   <View style={[styles.listIcon, { backgroundColor: style.bgColor }]}>
-                    <Ionicons name={style.iconName} size={24} color="#FFFFFF" />
+                    <Ionicons name={style.iconName} size={24} color={theme.textInverse} />
                   </View>
                   <View style={styles.listItemContent}>
                     <Text style={[APPLE_TEXT_STYLES.body, styles.listItemTitle]}>
                       {style.label}
                     </Text>
                     <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
-                      Для {HAIR_TYPE_LABELS[hairType].toLowerCase()} • {score}%
+                      Для {HAIR_TYPE_LABELS[hairType].toLowerCase()} - {score}%
                     </Text>
                   </View>
-                  <ChevronArrow color="#C7C7CC" size={20} direction="right" />
+                  <ChevronArrow color={theme.textTertiary} size={20} direction="right" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -617,7 +693,7 @@ export default function ProductResultScreen() {
                 const isLast = index === analysis.ingredients.length - 1;
                 const iconColor = getIconColor(item.status);
                 const iconName = getIngredientIcon(item);
-                
+
                 return (
                   <TouchableOpacity
                     key={index}
@@ -626,7 +702,7 @@ export default function ProductResultScreen() {
                     onPress={() => setSelectedIngredient(item)}
                   >
                     <View style={[styles.listIcon, { backgroundColor: iconColor }]}>
-                      <Ionicons name={iconName} size={24} color="#FFFFFF" />
+                      <Ionicons name={iconName} size={24} color={theme.textInverse} />
                     </View>
                     <View style={styles.listItemContent}>
                       <Text style={[APPLE_TEXT_STYLES.body, styles.listItemTitle]}>
@@ -638,14 +714,28 @@ export default function ProductResultScreen() {
                         </Text>
                       )}
                     </View>
-                    <ChevronArrow color="#C7C7CC" size={20} direction="right" />
+                    <ChevronArrow color={theme.textTertiary} size={20} direction="right" />
                   </TouchableOpacity>
                 );
               })}
             </View>
           </View>
         )}
+
+        {/* Comments Section */}
+        <View
+          style={styles.commentsContainer}
+          onLayout={(event) => {
+            commentsLayoutY.current = event.nativeEvent.layout.y;
+          }}
+        >
+          <CommentSection
+            productId={id as Id<'products'>}
+            onInputFocus={handleCommentInputFocus}
+          />
+        </View>
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Ingredient Detail Modal */}
       <Modal
@@ -664,7 +754,7 @@ export default function ProductResultScreen() {
                   onPress={() => setSelectedIngredient(null)}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="close" size={28} color="#000000" />
+                  <Ionicons name="close" size={28} color={theme.text} />
                 </TouchableOpacity>
                 <Text style={[APPLE_TEXT_STYLES.title2, styles.modalTitle]}>
                   {selectedIngredient.name}
@@ -676,15 +766,15 @@ export default function ProductResultScreen() {
                 {/* Ingredient Icon and Status */}
                 <View style={styles.modalIconSection}>
                   <View style={[styles.modalIconContainer, { backgroundColor: getIconColor(selectedIngredient.status) }]}>
-                    <Ionicons 
-                      name={getIngredientIcon(selectedIngredient)} 
-                      size={64} 
-                      color="#FFFFFF" 
+                    <Ionicons
+                      name={getIngredientIcon(selectedIngredient)}
+                      size={64}
+                      color={theme.textInverse}
                     />
                   </View>
                   <View style={styles.modalStatusBadge}>
-                    <Text style={[APPLE_TEXT_STYLES.headline, { 
-                      color: getIconColor(selectedIngredient.status) 
+                    <Text style={[APPLE_TEXT_STYLES.headline, {
+                      color: getIconColor(selectedIngredient.status)
                     }]}>
                       {selectedIngredient.status === 'green' ? 'Безопасен' :
                        selectedIngredient.status === 'yellow' ? 'Требует внимания' : 'Риск'}
@@ -708,28 +798,28 @@ export default function ProductResultScreen() {
                 {skinType && (product.category === 'skin' || product.category === 'mixed' || !product.category) && (
                   <View style={styles.modalSection}>
                     <View style={styles.modalSectionHeader}>
-                      <Ionicons name="person" size={20} color="#007AFF" />
+                      <Ionicons name="person" size={20} color={theme.primary} />
                       <Text style={[APPLE_TEXT_STYLES.headline, styles.modalSectionTitle]}>
                         Для {SKIN_TYPE_LABELS[skinType].toLowerCase()} кожи
                       </Text>
                     </View>
-                    
+
                     {/* Benefits */}
                     <View style={styles.modalBenefitBlock}>
                       <View style={styles.modalBenefitHeader}>
-                        <Ionicons name="checkmark-circle" size={20} color="#34C759" />
+                        <Ionicons name="checkmark-circle" size={20} color={theme.success} />
                         <Text style={[APPLE_TEXT_STYLES.subhead, styles.modalBenefitTitle]}>
                           Польза
                         </Text>
                       </View>
                       {selectedIngredient.status === 'green' ? (
                         <Text style={[APPLE_TEXT_STYLES.body, styles.modalBenefitText]}>
-                          Этот компонент хорошо подходит для {SKIN_TYPE_LABELS[skinType].toLowerCase()} кожи. 
+                          Этот компонент хорошо подходит для {SKIN_TYPE_LABELS[skinType].toLowerCase()} кожи.
                           {selectedIngredient.desc && ` ${selectedIngredient.desc}`}
                         </Text>
                       ) : selectedIngredient.status === 'yellow' ? (
                         <Text style={[APPLE_TEXT_STYLES.body, styles.modalBenefitText]}>
-                          Компонент может быть полезен для {SKIN_TYPE_LABELS[skinType].toLowerCase()} кожи, 
+                          Компонент может быть полезен для {SKIN_TYPE_LABELS[skinType].toLowerCase()} кожи,
                           но требует осторожного использования. Рекомендуется провести тест на аллергию.
                         </Text>
                       ) : (
@@ -743,20 +833,20 @@ export default function ProductResultScreen() {
                     {selectedIngredient.status !== 'green' && (
                       <View style={styles.modalRiskBlock}>
                         <View style={styles.modalBenefitHeader}>
-                          <Ionicons name="alert-circle" size={20} color="#FF9500" />
+                          <Ionicons name="alert-circle" size={20} color={theme.warning} />
                           <Text style={[APPLE_TEXT_STYLES.subhead, styles.modalRiskTitle]}>
                             Вред и предостережения
                           </Text>
                         </View>
                         {selectedIngredient.status === 'yellow' ? (
                           <Text style={[APPLE_TEXT_STYLES.body, styles.modalRiskText]}>
-                            Может вызывать раздражение или аллергические реакции у чувствительной кожи. 
+                            Может вызывать раздражение или аллергические реакции у чувствительной кожи.
                             При появлении покраснения, зуда или других неприятных ощущений прекратите использование.
                           </Text>
                         ) : (
                           <Text style={[APPLE_TEXT_STYLES.body, styles.modalRiskText]}>
-                            Высокий риск нежелательных реакций для {SKIN_TYPE_LABELS[skinType].toLowerCase()} кожи. 
-                            Может вызывать раздражение, аллергию или другие побочные эффекты. 
+                            Высокий риск нежелательных реакций для {SKIN_TYPE_LABELS[skinType].toLowerCase()} кожи.
+                            Может вызывать раздражение, аллергию или другие побочные эффекты.
                             Не рекомендуется для регулярного использования.
                           </Text>
                         )}
@@ -770,7 +860,7 @@ export default function ProductResultScreen() {
                       </Text>
                       {skinType === 'dry' && (
                         <Text style={[APPLE_TEXT_STYLES.body, styles.modalRecommendationText]}>
-                          {selectedIngredient.status === 'green' 
+                          {selectedIngredient.status === 'green'
                             ? 'Отлично подходит для сухой кожи. Помогает удерживать влагу и предотвращает обезвоживание.'
                             : 'Используйте с осторожностью. Сухая кожа более склонна к раздражению.'}
                         </Text>
@@ -811,7 +901,7 @@ export default function ProductResultScreen() {
                 {hairType && (product.category === 'hair' || product.category === 'mixed') && (
                   <View style={styles.modalSection}>
                     <View style={styles.modalSectionHeader}>
-                      <Ionicons name="cut" size={20} color="#007AFF" />
+                      <Ionicons name="cut" size={20} color={theme.primary} />
                       <Text style={[APPLE_TEXT_STYLES.headline, styles.modalSectionTitle]}>
                         Для {HAIR_TYPE_LABELS[hairType].toLowerCase()} волос
                       </Text>
@@ -848,7 +938,7 @@ export default function ProductResultScreen() {
                   onPress={() => setCompatibilityModal(null)}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="close" size={28} color="#000000" />
+                  <Ionicons name="close" size={28} color={theme.text} />
                 </TouchableOpacity>
                 <Text style={[APPLE_TEXT_STYLES.title2, styles.modalTitle]}>
                   Совместимость
@@ -873,16 +963,16 @@ export default function ProductResultScreen() {
                       {/* Compatibility Status */}
                       <View style={styles.modalIconSection}>
                         <View style={[styles.modalIconContainer, { backgroundColor: style.bgColor }]}>
-                          <Ionicons name={style.iconName} size={64} color="#FFFFFF" />
+                          <Ionicons name={style.iconName} size={64} color={theme.textInverse} />
                         </View>
                         <View style={styles.modalStatusBadge}>
-                          <Text style={[APPLE_TEXT_STYLES.headline, { 
-                            color: style.iconColor 
+                          <Text style={[APPLE_TEXT_STYLES.headline, {
+                            color: style.iconColor
                           }]}>
                             {style.label}
                           </Text>
-                          <Text style={[APPLE_TEXT_STYLES.subhead, { color: '#8E8E93', marginTop: 4 }]}>
-                            Для {typeLabel.toLowerCase()} • {compatibilityModal.score}%
+                          <Text style={[APPLE_TEXT_STYLES.subhead, { color: theme.textSecondary, marginTop: 4 }]}>
+                            Для {typeLabel.toLowerCase()} - {compatibilityModal.score}%
                           </Text>
                         </View>
                       </View>
@@ -901,7 +991,7 @@ export default function ProductResultScreen() {
                       {compatibilityModal.status === 'good' && analysis.pros.length > 0 && (
                         <View style={styles.modalSection}>
                           <View style={styles.modalSectionHeader}>
-                            <Ionicons name="checkmark-circle" size={20} color="#34C759" />
+                            <Ionicons name="checkmark-circle" size={20} color={theme.success} />
                             <Text style={[APPLE_TEXT_STYLES.headline, styles.modalSectionTitle]}>
                               Преимущества продукта
                             </Text>
@@ -909,7 +999,7 @@ export default function ProductResultScreen() {
                           {analysis.pros.slice(0, 3).map((pro, idx) => (
                             <View key={idx} style={styles.modalBenefitBlock}>
                               <View style={styles.modalBenefitHeader}>
-                                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#34C759', marginRight: 8 }} />
+                                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: theme.success, marginRight: 8 }} />
                                 <Text style={[APPLE_TEXT_STYLES.body, styles.modalBenefitText]}>
                                   {pro}
                                 </Text>
@@ -922,7 +1012,7 @@ export default function ProductResultScreen() {
                       {compatibilityModal.status === 'bad' && analysis.cons.length > 0 && (
                         <View style={styles.modalSection}>
                           <View style={styles.modalSectionHeader}>
-                            <Ionicons name="alert-circle" size={20} color="#FF3B30" />
+                            <Ionicons name="alert-circle" size={20} color={theme.error} />
                             <Text style={[APPLE_TEXT_STYLES.headline, styles.modalSectionTitle]}>
                               Риски и ограничения
                             </Text>
@@ -930,7 +1020,7 @@ export default function ProductResultScreen() {
                           {analysis.cons.slice(0, 3).map((con, idx) => (
                             <View key={idx} style={styles.modalRiskBlock}>
                               <View style={styles.modalBenefitHeader}>
-                                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#FF3B30', marginRight: 8 }} />
+                                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: theme.error, marginRight: 8 }} />
                                 <Text style={[APPLE_TEXT_STYLES.body, styles.modalRiskText]}>
                                   {con}
                                 </Text>
@@ -951,17 +1041,20 @@ export default function ProductResultScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createThemedStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: theme.backgroundSecondary,
+  },
+  keyboardAvoidingView: {
+    flex: 1,
   },
   navBar: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: theme.backgroundSecondary,
   },
   backButton: {
     flexDirection: 'row',
@@ -969,7 +1062,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   backButtonText: {
-    color: '#007AFF',
+    color: theme.primary,
     marginLeft: 4,
   },
   scrollView: {
@@ -981,7 +1074,7 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   headerCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.card,
     borderRadius: 12,
     padding: 20,
     alignItems: 'center',
@@ -990,18 +1083,18 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 18,
-    backgroundColor: '#007AFF',
+    backgroundColor: theme.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
   },
   headerTitle: {
-    color: '#000000',
+    color: theme.text,
     marginBottom: 12,
     textAlign: 'center',
   },
   headerDescription: {
-    color: '#000000',
+    color: theme.text,
     textAlign: 'left',
     lineHeight: 20,
     marginBottom: 12,
@@ -1011,21 +1104,21 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   learnMoreText: {
-    color: '#007AFF',
+    color: theme.primary,
   },
   section: {
     marginTop: 32,
     marginHorizontal: 16,
   },
   sectionHeader: {
-    color: '#8E8E93',
+    color: theme.textSecondary,
     fontWeight: '600',
     marginBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   sectionContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.card,
     borderRadius: 10,
     overflow: 'hidden',
   },
@@ -1034,9 +1127,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.card,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#C6C6C8',
+    borderBottomColor: theme.border,
   },
   listItemLast: {
     borderBottomWidth: 0,
@@ -1054,11 +1147,11 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   listItemTitle: {
-    color: '#000000',
+    color: theme.text,
     marginBottom: 2,
   },
   listItemSubtitle: {
-    color: '#8E8E93',
+    color: theme.textSecondary,
   },
   errorContainer: {
     flex: 1,
@@ -1070,23 +1163,23 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: theme.backgroundSecondary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
   },
   errorTitle: {
-    color: '#000000',
+    color: theme.text,
     marginBottom: 12,
     textAlign: 'center',
   },
   errorText: {
-    color: '#8E8E93',
+    color: theme.textSecondary,
     marginBottom: 32,
     textAlign: 'center',
   },
   errorButton: {
-    backgroundColor: '#000000',
+    backgroundColor: theme.text,
     paddingHorizontal: 32,
     paddingVertical: 16,
     borderRadius: 12,
@@ -1096,7 +1189,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   errorButtonText: {
-    color: '#FFFFFF',
+    color: theme.textInverse,
   },
   loadingContainer: {
     flex: 1,
@@ -1104,7 +1197,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: '#8E8E93',
+    color: theme.textSecondary,
     marginTop: 16,
   },
   expandedSection: {
@@ -1112,7 +1205,7 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   expandedCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.card,
     borderRadius: 12,
     padding: 20,
     marginTop: 16,
@@ -1123,17 +1216,17 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   expandedTitle: {
-    color: '#000000',
+    color: theme.text,
     marginLeft: 8,
   },
   analysisBlock: {
     marginBottom: 24,
     paddingBottom: 20,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: theme.border,
   },
   analysisBlockTitle: {
-    color: '#000000',
+    color: theme.text,
     marginBottom: 12,
   },
   compatibilityDetails: {
@@ -1145,15 +1238,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   compatibilityLabel: {
-    color: '#8E8E93',
+    color: theme.textSecondary,
   },
   compatibilityValue: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   scoreText: {
-    color: '#8E8E93',
-    backgroundColor: '#F2F2F7',
+    color: theme.textSecondary,
+    backgroundColor: theme.backgroundSecondary,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
@@ -1163,7 +1256,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   ingredientsForTypeTitle: {
-    color: '#000000',
+    color: theme.text,
     marginBottom: 12,
   },
   ingredientsTagsContainer: {
@@ -1173,7 +1266,7 @@ const styles = StyleSheet.create({
   ingredientTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F2F2F7',
+    backgroundColor: theme.backgroundSecondary,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
@@ -1181,14 +1274,14 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   ingredientTagText: {
-    color: '#000000',
+    color: theme.text,
     marginLeft: 6,
   },
   prosConsSection: {
     marginBottom: 24,
     paddingBottom: 20,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: theme.border,
   },
   prosConsBlock: {
     marginBottom: 20,
@@ -1199,7 +1292,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   prosConsTitle: {
-    color: '#000000',
+    color: theme.text,
     marginLeft: 8,
   },
   prosConsItem: {
@@ -1211,15 +1304,15 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#34C759',
+    backgroundColor: theme.success,
     marginTop: 6,
     marginRight: 12,
   },
   consBullet: {
-    backgroundColor: '#FF9500',
+    backgroundColor: theme.warning,
   },
   prosConsText: {
-    color: '#000000',
+    color: theme.text,
     flex: 1,
     lineHeight: 20,
   },
@@ -1227,7 +1320,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     paddingBottom: 20,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: theme.border,
   },
   safetyHeader: {
     flexDirection: 'row',
@@ -1235,11 +1328,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   safetyTitle: {
-    color: '#000000',
+    color: theme.text,
     marginLeft: 8,
   },
   safetyText: {
-    color: '#000000',
+    color: theme.text,
     lineHeight: 20,
   },
   detailedIngredientsSection: {
@@ -1251,11 +1344,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   detailedIngredientsTitle: {
-    color: '#000000',
+    color: theme.text,
     marginLeft: 8,
   },
   detailedIngredientsSubtitle: {
-    color: '#8E8E93',
+    color: theme.textSecondary,
     marginBottom: 16,
     marginLeft: 28,
   },
@@ -1266,7 +1359,7 @@ const styles = StyleSheet.create({
   statItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F2F2F7',
+    backgroundColor: theme.backgroundSecondary,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
@@ -1274,12 +1367,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   statText: {
-    color: '#000000',
+    color: theme.text,
     marginLeft: 6,
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: theme.backgroundSecondary,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1287,9 +1380,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.card,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#C6C6C8',
+    borderBottomColor: theme.border,
   },
   modalCloseButton: {
     width: 44,
@@ -1298,7 +1391,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalTitle: {
-    color: '#000000',
+    color: theme.text,
     flex: 1,
     textAlign: 'center',
   },
@@ -1311,7 +1404,7 @@ const styles = StyleSheet.create({
   modalIconSection: {
     alignItems: 'center',
     paddingVertical: 32,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.card,
     marginBottom: 16,
   },
   modalIconContainer: {
@@ -1332,10 +1425,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: theme.backgroundSecondary,
   },
   modalSection: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.card,
     paddingHorizontal: 16,
     paddingVertical: 20,
     marginBottom: 16,
@@ -1346,21 +1439,21 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   modalSectionTitle: {
-    color: '#000000',
+    color: theme.text,
     marginLeft: 8,
     marginBottom: 12,
   },
   modalSectionText: {
-    color: '#000000',
+    color: theme.text,
     lineHeight: 22,
   },
   modalBenefitBlock: {
-    backgroundColor: '#F0F9F4',
+    backgroundColor: theme.primaryLight,
     padding: 16,
     borderRadius: 12,
     marginBottom: 16,
     borderLeftWidth: 4,
-    borderLeftColor: '#34C759',
+    borderLeftColor: theme.success,
   },
   modalBenefitHeader: {
     flexDirection: 'row',
@@ -1368,44 +1461,49 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   modalBenefitTitle: {
-    color: '#000000',
+    color: theme.text,
     marginLeft: 8,
     fontWeight: '600',
   },
   modalBenefitText: {
-    color: '#000000',
+    color: theme.text,
     lineHeight: 22,
   },
   modalRiskBlock: {
-    backgroundColor: '#FFF4E6',
+    backgroundColor: theme.primaryLight,
     padding: 16,
     borderRadius: 12,
     marginBottom: 16,
     borderLeftWidth: 4,
-    borderLeftColor: '#FF9500',
+    borderLeftColor: theme.warning,
   },
   modalRiskTitle: {
-    color: '#000000',
+    color: theme.text,
     marginLeft: 8,
     fontWeight: '600',
   },
   modalRiskText: {
-    color: '#000000',
+    color: theme.text,
     lineHeight: 22,
   },
   modalRecommendationBlock: {
-    backgroundColor: '#F2F2F7',
+    backgroundColor: theme.backgroundSecondary,
     padding: 16,
     borderRadius: 12,
     marginTop: 8,
   },
   modalRecommendationTitle: {
-    color: '#000000',
+    color: theme.text,
     marginBottom: 8,
     fontWeight: '600',
   },
   modalRecommendationText: {
-    color: '#000000',
+    color: theme.text,
     lineHeight: 22,
+  },
+  commentsContainer: {
+    marginHorizontal: 16,
+    marginTop: 24,
+    marginBottom: 32,
   },
 });

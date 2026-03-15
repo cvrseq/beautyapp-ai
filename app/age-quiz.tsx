@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -13,6 +13,7 @@ import { getAgeRangeOptions, AgeRange } from '@/types/userProfile';
 import { APPLE_TEXT_STYLES } from '@/constants/fonts';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronArrow } from '@/components/ChevronArrow';
+import { useTheme, Theme } from '@/hooks/useTheme';
 
 const AGE_RANGES = getAgeRangeOptions();
 
@@ -20,6 +21,8 @@ export default function AgeQuizScreen() {
   const [selectedAge, setSelectedAge] = useState<AgeRange | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const { age, saveAge, isLoading } = useAge();
+  const { theme } = useTheme();
+  const styles = useMemo(() => createThemedStyles(theme), [theme]);
 
   useEffect(() => {
     if (!isLoading && age) {
@@ -66,7 +69,7 @@ export default function AgeQuizScreen() {
           }}
           activeOpacity={0.7}
         >
-          <ChevronArrow color="#007AFF" size={20} direction="left" />
+          <ChevronArrow color={theme.primary} size={20} direction="left" />
           <Text style={[APPLE_TEXT_STYLES.body, styles.backButtonText]}>
             Beauty AI
           </Text>
@@ -97,7 +100,7 @@ export default function AgeQuizScreen() {
                 disabled={isSaving}
               >
                 <View style={styles.listIcon}>
-                  <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={22} color="#007AFF" />
+                  <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={22} color={theme.primary} />
                 </View>
                 <View style={styles.listItemContent}>
                   <Text style={[APPLE_TEXT_STYLES.body, styles.listItemTitle]}>
@@ -108,7 +111,7 @@ export default function AgeQuizScreen() {
                   </Text>
                 </View>
                 {isSelected && (
-                  <Ionicons name="checkmark" size={22} color="#007AFF" />
+                  <Ionicons name="checkmark" size={22} color={theme.primary} />
                 )}
               </TouchableOpacity>
             );
@@ -126,17 +129,17 @@ export default function AgeQuizScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createThemedStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: theme.backgroundSecondary,
   },
   navBar: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: theme.backgroundSecondary,
   },
   backButton: {
     flexDirection: 'row',
@@ -144,23 +147,23 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   backButtonText: {
-    color: '#007AFF',
+    color: theme.primary,
     marginLeft: 4,
   },
   header: {
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 12,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: theme.backgroundSecondary,
   },
   title: {
-    color: '#000000',
+    color: theme.text,
   },
   scrollView: {
     flex: 1,
   },
   section: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.card,
     borderRadius: 10,
     marginHorizontal: 16,
     marginBottom: 32,
@@ -171,9 +174,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.card,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#C6C6C8',
+    borderBottomColor: theme.border,
   },
   listItemLast: {
     borderBottomWidth: 0,
@@ -182,7 +185,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: theme.backgroundSecondary,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -191,21 +194,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listItemTitle: {
-    color: '#000000',
+    color: theme.text,
     marginBottom: 2,
   },
   listItemSubtitle: {
-    color: '#8E8E93',
+    color: theme.textSecondary,
   },
   descriptionSection: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.card,
     borderRadius: 10,
     marginHorizontal: 16,
     marginBottom: 32,
     padding: 16,
   },
   descriptionText: {
-    color: '#8E8E93',
+    color: theme.textSecondary,
     lineHeight: 20,
   },
 });

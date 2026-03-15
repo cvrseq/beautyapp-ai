@@ -6,6 +6,10 @@ import {
   HAIR_TYPES,
   SKIN_COMPATIBILITY_STATUSES,
   SKIN_TYPES,
+  SILLAGE_LEVELS,
+  LONGEVITY_DESCRIPTIONS,
+  CONCENTRATION_TYPES,
+  GENDER_TYPES,
   type HairCompatibility,
   type HairCompatibilityItem,
   type HairCompatibilityStatus,
@@ -13,6 +17,9 @@ import {
   type SkinCompatibility,
   type SkinCompatibilityItem,
   type SkinCompatibilityStatus,
+  type PerfumeData,
+  type SillageLevel,
+  type LongevityDescription,
 } from './types';
 
 // Helper function to check if string is a valid skin status
@@ -26,16 +33,254 @@ function isValidHairStatus(value: string): value is HairCompatibilityStatus {
 }
 
 // Helper function to normalize product category
-function normalizeCategory(value: any): ProductCategory {
+function normalizeCategory(value: unknown): ProductCategory {
   if (typeof value === 'string') {
     const lower = value.toLowerCase();
     if (lower === 'hair' || lower === 'волос' || lower === 'для волос') return 'hair';
     if (lower === 'skin' || lower === 'кожа' || lower === 'для кожи' || lower === 'лицо' || lower === 'face') return 'skin';
     if (lower === 'mixed' || lower === 'смешанный') return 'mixed';
+    if (lower === 'perfume' || lower === 'парфюм' || lower === 'духи' || lower === 'туалетная вода' || lower === 'аромат' || lower === 'одеколон' || lower === 'fragrance') return 'perfume';
   }
   return 'unknown';
 }
 
+// Helper function to get default perfume data
+function getDefaultPerfumeData(): PerfumeData {
+  return {
+    notePyramid: { top: [], heart: [], base: [] },
+    accords: [],
+    seasonality: { spring: 50, summer: 50, fall: 50, winter: 50 },
+    timeOfDay: { day: 50, evening: 50, night: 50 },
+    longevity: { hours: 6, rating: 5, description: 'moderate' },
+    sillage: { level: 'moderate', rating: 5 },
+  };
+}
+
+// Helper function to validate perfume data from AI response
+function validatePerfumeData(data: unknown): PerfumeData {
+  if (!data || typeof data !== 'object') {
+    return getDefaultPerfumeData();
+  }
+
+  const d = data as Record<string, unknown>;
+
+  // Validate note pyramid
+  const notePyramid = d.notePyramid as Record<string, unknown> | undefined;
+  const validatedNotePyramid = {
+    top: Array.isArray(notePyramid?.top)
+      ? notePyramid.top.filter((n): n is string => typeof n === 'string').slice(0, 10)
+      : [],
+    heart: Array.isArray(notePyramid?.heart)
+      ? notePyramid.heart.filter((n): n is string => typeof n === 'string').slice(0, 10)
+      : [],
+    base: Array.isArray(notePyramid?.base)
+      ? notePyramid.base.filter((n): n is string => typeof n === 'string').slice(0, 10)
+      : [],
+  };
+
+  // Validate accords
+  const accords = Array.isArray(d.accords)
+    ? d.accords
+        .filter((a): a is Record<string, unknown> => a !== null && typeof a === 'object')
+        .map(a => ({
+          name: typeof a.name === 'string' ? a.name : 'Unknown',
+          strength: Math.max(0, Math.min(100, Number(a.strength) || 0)),
+        }))
+        .slice(0, 10)
+    : [];
+
+  // Validate seasonality
+  const seasonality = d.seasonality as Record<string, unknown> | undefined;
+  const validatedSeasonality = {
+    spring: Math.max(0, Math.min(100, Number(seasonality?.spring) || 50)),
+    summer: Math.max(0, Math.min(100, Number(seasonality?.summer) || 50)),
+    fall: Math.max(0, Math.min(100, Number(seasonality?.fall) || 50)),
+    winter: Math.max(0, Math.min(100, Number(seasonality?.winter) || 50)),
+  };
+
+  // Validate time of day
+  const timeOfDay = d.timeOfDay as Record<string, unknown> | undefined;
+  const validatedTimeOfDay = {
+    day: Math.max(0, Math.min(100, Number(timeOfDay?.day) || 50)),
+    evening: Math.max(0, Math.min(100, Number(timeOfDay?.evening) || 50)),
+    night: Math.max(0, Math.min(100, Number(timeOfDay?.night) || 50)),
+  };
+
+  // Validate longevity
+  const longevity = d.longevity as Record<string, unknown> | undefined;
+  const longevityDesc = typeof longevity?.description === 'string' &&
+    LONGEVITY_DESCRIPTIONS.includes(longevity.description as LongevityDescription)
+    ? longevity.description as LongevityDescription
+    : 'moderate';
+  const validatedLongevity = {
+    hours: Math.max(1, Math.min(24, Number(longevity?.hours) || 6)),
+    rating: Math.max(1, Math.min(10, Number(longevity?.rating) || 5)),
+    description: longevityDesc,
+  };
+
+  // Validate sillage
+  const sillage = d.sillage as Record<string, unknown> | undefined;
+  const sillageLevel = typeof sillage?.level === 'string' &&
+    SILLAGE_LEVELS.includes(sillage.level as SillageLevel)
+    ? sillage.level as SillageLevel
+    : 'moderate';
+  const validatedSillage = {
+    level: sillageLevel,
+    rating: Math.max(1, Math.min(10, Number(sillage?.rating) || 5)),
+  };
+
+  // Optional fields
+  const concentration = typeof d.concentration === 'string' &&
+    CONCENTRATION_TYPES.includes(d.concentration as typeof CONCENTRATION_TYPES[number])
+    ? d.concentration as typeof CONCENTRATION_TYPES[number]
+    : undefined;
+
+  const gender = typeof d.gender === 'string' &&
+    GENDER_TYPES.includes(d.gender as typeof GENDER_TYPES[number])
+    ? d.gender as typeof GENDER_TYPES[number]
+    : undefined;
+
+  const releaseYear = typeof d.releaseYear === 'number' && d.releaseYear > 1900 && d.releaseYear < 2100
+    ? d.releaseYear
+    : undefined;
+
+  const perfumer = typeof d.perfumer === 'string' && d.perfumer.length > 0
+    ? d.perfumer
+    : undefined;
+
+  return {
+    notePyramid: validatedNotePyramid,
+    accords,
+    seasonality: validatedSeasonality,
+    timeOfDay: validatedTimeOfDay,
+    longevity: validatedLongevity,
+    sillage: validatedSillage,
+    concentration,
+    gender,
+    releaseYear,
+    perfumer,
+  };
+}
+
+// ========================================
+// Quick Identification (Phase 1 - Cache Check)
+// Lightweight AI call to get brand + name only
+// Used to check cache before full analysis
+// ========================================
+export const quickIdentifyProduct = internalAction({
+  args: {
+    imageBase64: v.string(),
+  },
+  handler: async (_ctx, args) => {
+    const API_KEY = process.env.GEMINI_API_KEY;
+
+    if (!API_KEY) {
+      return { error: 'Отсутствует ключ GEMINI_API_KEY на сервере.' };
+    }
+
+    try {
+      // Validate base64 size
+      if (args.imageBase64.length > VALIDATION.MAX_BASE64_SIZE) {
+        return { error: 'Изображение слишком большое.' };
+      }
+
+      const response = await fetch(API_CONFIG.VSEGPT_BASE_URL, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${API_KEY}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': API_CONFIG.HTTP_REFERER,
+          'X-Title': API_CONFIG.X_TITLE,
+        },
+        body: JSON.stringify({
+          model: API_CONFIG.MODEL,
+          max_tokens: 200, // Limit tokens for quick identification
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: [
+                    'Определи бренд и название косметического продукта или парфюма на изображении.',
+                    'Верни ТОЛЬКО JSON: {"brand": "...", "name": "...", "confidence": 0-1, "category": "skin"|"hair"|"mixed"|"perfume"|"unknown"}',
+                    'Без markdown, без объяснений, только JSON.',
+                  ].join(' '),
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: `data:image/jpeg;base64,${args.imageBase64}`,
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('Quick identify HTTP error', await response.text());
+        return { error: 'Сервис временно недоступен.' };
+      }
+
+      const data = await response.json();
+      const message = data?.choices?.[0]?.message;
+      let text: string | unknown = message?.content;
+
+      if (Array.isArray(text)) {
+        text = text
+          .map((part: unknown) => {
+            if (typeof part === 'string') return part;
+            if (part && typeof part === 'object' && 'text' in part) return part.text;
+            return '';
+          })
+          .filter(Boolean)
+          .join('\n');
+      }
+
+      if (!text || typeof text !== 'string') {
+        return { error: 'Не удалось распознать.' };
+      }
+
+      let parsed: unknown;
+      try {
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        parsed = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+      } catch {
+        return { error: 'Ошибка парсинга ответа.' };
+      }
+
+      if (
+        !parsed ||
+        typeof parsed !== 'object' ||
+        !('brand' in parsed) ||
+        !('name' in parsed) ||
+        !('confidence' in parsed)
+      ) {
+        return { error: 'Некорректный формат ответа.' };
+      }
+
+      const result = parsed as Record<string, unknown>;
+      result.category = normalizeCategory(result.category);
+
+      return {
+        brand: String(result.brand),
+        name: String(result.name),
+        confidence: Number(result.confidence),
+        category: result.category as ProductCategory,
+      };
+    } catch (err) {
+      console.error('Quick identify failed', err);
+      return { error: 'Ошибка при идентификации.' };
+    }
+  },
+});
+
+// ========================================
+// Full Product Identification (Phase 2)
+// Complete analysis with all details
+// ========================================
 export const identifyProduct = internalAction({
   args: {
     imageBase64: v.string(),
@@ -120,9 +365,28 @@ export const identifyProduct = internalAction({
                 {
                   type: 'text',
                   text: [
-                    'Ты — эксперт косметики.',
-                    'Определи бренд, название, категорию продукта и проанализируй состав.',
-                    'Сначала определи категорию продукта: "skin" (для лица/кожи), "hair" (для волос), "mixed" (универсальный), "unknown" (не определена).',
+                    'Ты — эксперт косметики и парфюмерии.',
+                    'Определи бренд, название и категорию продукта.',
+                    'Категории: "skin" (для лица/кожи), "hair" (для волос), "mixed" (универсальный), "perfume" (парфюм/духи/туалетная вода/одеколон), "unknown" (не определена).',
+                    '',
+                    '=== ЕСЛИ ЭТО ПАРФЮМ (категория "perfume") ===',
+                    'Верни JSON в формате: {brand, name, confidence, category: "perfume", perfumeData: {...}}',
+                    'Структура perfumeData:',
+                    '{',
+                    '  "notePyramid": {"top": ["верхние ноты"], "heart": ["сердечные ноты"], "base": ["базовые ноты"]},',
+                    '  "accords": [{"name": "название аккорда", "strength": 0-100}],',
+                    '  "seasonality": {"spring": 0-100, "summer": 0-100, "fall": 0-100, "winter": 0-100},',
+                    '  "timeOfDay": {"day": 0-100, "evening": 0-100, "night": 0-100},',
+                    '  "longevity": {"hours": 1-24, "rating": 1-10, "description": "weak|moderate|good|excellent|eternal"},',
+                    '  "sillage": {"level": "intimate|moderate|strong|enormous", "rating": 1-10},',
+                    '  "concentration": "eau_fraiche|eau_de_cologne|eau_de_toilette|eau_de_parfum|parfum|extrait",',
+                    '  "gender": "masculine|feminine|unisex",',
+                    '  "releaseYear": год выпуска,',
+                    '  "perfumer": "имя парфюмера"',
+                    '}',
+                    'Для парфюмов НЕ нужны поля: analysis, skinCompatibility, hairCompatibility.',
+                    '',
+                    '=== ЕСЛИ ЭТО КОСМЕТИКА (skin/hair/mixed) ===',
                     // Skin type context
                     args.skinType
                       ? `Учитывай, что у пользователя ${
@@ -264,11 +528,9 @@ export const identifyProduct = internalAction({
         !('brand' in parsed) ||
         !('name' in parsed) ||
         !('confidence' in parsed) ||
-        !('analysis' in parsed) ||
         typeof parsed.brand !== 'string' ||
         typeof parsed.name !== 'string' ||
-        typeof parsed.confidence !== 'number' ||
-        !parsed.analysis
+        typeof parsed.confidence !== 'number'
       ) {
         console.error('OpenRouter invalid schema', parsed);
         return {
@@ -280,6 +542,25 @@ export const identifyProduct = internalAction({
       const result = parsed as Record<string, unknown>;
       const category = 'category' in result ? result.category : undefined;
       result.category = normalizeCategory(category);
+
+      // Если это парфюм, обрабатываем отдельно
+      if (result.category === 'perfume') {
+        // Validate and normalize perfume data
+        result.perfumeData = validatePerfumeData(result.perfumeData);
+        // Remove cosmetic-specific fields
+        delete result.analysis;
+        delete result.skinCompatibility;
+        delete result.hairCompatibility;
+        return result;
+      }
+
+      // Для косметики требуется analysis
+      if (!('analysis' in parsed) || !parsed.analysis) {
+        console.error('OpenRouter invalid schema - missing analysis for cosmetics', parsed);
+        return {
+          error: 'Не удалось уверенно определить продукт. Попробуйте другой ракурс.',
+        };
+      }
 
       // Валидация и нормализация analysis
       if (result.analysis && typeof result.analysis === 'object') {

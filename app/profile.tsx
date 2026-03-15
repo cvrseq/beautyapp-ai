@@ -10,9 +10,10 @@ import { SKIN_TYPE_LABELS } from '@/types/skinType';
 import { AGE_RANGE_LABELS, LIFESTYLE_LABELS, LOCATION_LABELS } from '@/types/userProfile';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTheme, Theme } from '@/hooks/useTheme';
 
 export default function ProfileScreen() {
   const { skinType, isLoading: isLoadingSkin, loadSkinType } = useSkinType();
@@ -20,6 +21,8 @@ export default function ProfileScreen() {
   const { age, isLoading: isLoadingAge, loadAge } = useAge();
   const { lifestyle, isLoading: isLoadingLifestyle, loadLifestyle } = useLifestyle();
   const { location, isLoading: isLoadingLocation, loadLocation } = useLocation();
+  const { theme } = useTheme();
+  const styles = useMemo(() => createThemedStyles(theme), [theme]);
 
   // Обновляем данные при возврате на экран
   useFocusEffect(
@@ -45,7 +48,7 @@ export default function ProfileScreen() {
           }}
           activeOpacity={0.7}
         >
-          <ChevronArrow color="#007AFF" size={20} direction="left" />
+          <ChevronArrow color={theme.primary} size={20} direction="left" />
           <Text style={[APPLE_TEXT_STYLES.body, styles.backButtonText]}>
             Beauty AI
           </Text>
@@ -57,7 +60,7 @@ export default function ProfileScreen() {
         <View style={styles.headerSection}>
           <View style={styles.headerCard}>
             <View style={styles.headerIcon}>
-              <Ionicons name="person-circle" size={64} color="#007AFF" />
+              <Ionicons name="person-circle" size={64} color={theme.primary} />
             </View>
             <Text style={[APPLE_TEXT_STYLES.largeTitle, styles.headerTitle]}>
               Beauty Profile
@@ -78,7 +81,7 @@ export default function ProfileScreen() {
               activeOpacity={0.6}
             >
               <View style={styles.listIcon}>
-                <Ionicons name="person-circle-outline" size={24} color="#007AFF" />
+                <Ionicons name="person-circle-outline" size={24} color={theme.primary} />
               </View>
               <View style={styles.listItemContent}>
                 <Text style={[APPLE_TEXT_STYLES.body, styles.listItemTitle]}>
@@ -98,7 +101,7 @@ export default function ProfileScreen() {
                   </Text>
                 )}
               </View>
-              <ChevronArrow color="#C7C7CC" size={20} direction="right" />
+              <ChevronArrow color={theme.textTertiary} size={20} direction="right" />
             </TouchableOpacity>
           </View>
         </View>
@@ -113,7 +116,7 @@ export default function ProfileScreen() {
               activeOpacity={0.6}
             >
               <View style={styles.listIcon}>
-                <Ionicons name="cut-outline" size={24} color="#007AFF" />
+                <Ionicons name="cut-outline" size={24} color={theme.primary} />
               </View>
               <View style={styles.listItemContent}>
                 <Text style={[APPLE_TEXT_STYLES.body, styles.listItemTitle]}>
@@ -133,7 +136,7 @@ export default function ProfileScreen() {
                   </Text>
                 )}
               </View>
-              <ChevronArrow color="#C7C7CC" size={20} direction="right" />
+              <ChevronArrow color={theme.textTertiary} size={20} direction="right" />
             </TouchableOpacity>
           </View>
         </View>
@@ -148,7 +151,7 @@ export default function ProfileScreen() {
               activeOpacity={0.6}
             >
               <View style={styles.listIcon}>
-                <Ionicons name="calendar-outline" size={24} color="#007AFF" />
+                <Ionicons name="calendar-outline" size={24} color={theme.primary} />
               </View>
               <View style={styles.listItemContent}>
                 <Text style={[APPLE_TEXT_STYLES.body, styles.listItemTitle]}>
@@ -168,7 +171,7 @@ export default function ProfileScreen() {
                   </Text>
                 )}
               </View>
-              <ChevronArrow color="#C7C7CC" size={20} direction="right" />
+              <ChevronArrow color={theme.textTertiary} size={20} direction="right" />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -177,7 +180,7 @@ export default function ProfileScreen() {
               activeOpacity={0.6}
             >
               <View style={styles.listIcon}>
-                <Ionicons name="fitness-outline" size={24} color="#007AFF" />
+                <Ionicons name="fitness-outline" size={24} color={theme.primary} />
               </View>
               <View style={styles.listItemContent}>
                 <Text style={[APPLE_TEXT_STYLES.body, styles.listItemTitle]}>
@@ -197,7 +200,7 @@ export default function ProfileScreen() {
                   </Text>
                 )}
               </View>
-              <ChevronArrow color="#C7C7CC" size={20} direction="right" />
+              <ChevronArrow color={theme.textTertiary} size={20} direction="right" />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -206,7 +209,7 @@ export default function ProfileScreen() {
               activeOpacity={0.6}
             >
               <View style={styles.listIcon}>
-                <Ionicons name="location-outline" size={24} color="#007AFF" />
+                <Ionicons name="location-outline" size={24} color={theme.primary} />
               </View>
               <View style={styles.listItemContent}>
                 <Text style={[APPLE_TEXT_STYLES.body, styles.listItemTitle]}>
@@ -226,7 +229,7 @@ export default function ProfileScreen() {
                   </Text>
                 )}
               </View>
-              <ChevronArrow color="#C7C7CC" size={20} direction="right" />
+              <ChevronArrow color={theme.textTertiary} size={20} direction="right" />
             </TouchableOpacity>
           </View>
         </View>
@@ -236,7 +239,7 @@ export default function ProfileScreen() {
           <View style={styles.summarySection}>
             <View style={styles.summaryCard}>
               <View style={styles.summaryHeader}>
-                <Ionicons name="checkmark-circle" size={24} color="#34C759" />
+                <Ionicons name="checkmark-circle" size={24} color={theme.success} />
                 <Text style={[APPLE_TEXT_STYLES.headline, styles.summaryTitle]}>
                   Профиль настроен
                 </Text>
@@ -262,7 +265,7 @@ export default function ProfileScreen() {
          !isLoadingSkin && !isLoadingHair && !isLoadingAge && !isLoadingLifestyle && !isLoadingLocation && (
           <View style={styles.emptySection}>
             <View style={styles.emptyCard}>
-              <Ionicons name="person-circle-outline" size={48} color="#8E8E93" />
+              <Ionicons name="person-circle-outline" size={48} color={theme.textSecondary} />
               <Text style={[APPLE_TEXT_STYLES.headline, styles.emptyTitle]}>
                 Профиль не настроен
               </Text>
@@ -277,17 +280,17 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createThemedStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: theme.backgroundSecondary,
   },
   navBar: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: theme.backgroundSecondary,
   },
   backButton: {
     flexDirection: 'row',
@@ -295,7 +298,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   backButtonText: {
-    color: '#007AFF',
+    color: theme.primary,
     marginLeft: 4,
   },
   scrollView: {
@@ -307,7 +310,7 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   headerCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.card,
     borderRadius: 12,
     padding: 24,
     alignItems: 'center',
@@ -316,12 +319,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   headerTitle: {
-    color: '#000000',
+    color: theme.text,
     marginBottom: 8,
     textAlign: 'center',
   },
   headerSubtitle: {
-    color: '#8E8E93',
+    color: theme.textSecondary,
     textAlign: 'center',
   },
   section: {
@@ -329,14 +332,14 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
   },
   sectionHeader: {
-    color: '#8E8E93',
+    color: theme.textSecondary,
     fontWeight: '600',
     marginBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   sectionContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.card,
     borderRadius: 10,
     overflow: 'hidden',
   },
@@ -345,9 +348,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.card,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#C6C6C8',
+    borderBottomColor: theme.border,
   },
   listItemLast: {
     borderBottomWidth: 0,
@@ -356,7 +359,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: theme.backgroundSecondary,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -366,11 +369,11 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   listItemTitle: {
-    color: '#000000',
+    color: theme.text,
     marginBottom: 2,
   },
   listItemSubtitle: {
-    color: '#8E8E93',
+    color: theme.textSecondary,
   },
   summarySection: {
     marginTop: 32,
@@ -378,11 +381,11 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   summaryCard: {
-    backgroundColor: '#F0F9F4',
+    backgroundColor: theme.primaryLight,
     borderRadius: 12,
     padding: 20,
     borderLeftWidth: 4,
-    borderLeftColor: '#34C759',
+    borderLeftColor: theme.success,
   },
   summaryHeader: {
     flexDirection: 'row',
@@ -390,16 +393,16 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   summaryTitle: {
-    color: '#000000',
+    color: theme.text,
     marginLeft: 8,
   },
   summaryText: {
-    color: '#000000',
+    color: theme.text,
     marginBottom: 8,
     lineHeight: 22,
   },
   summarySubtext: {
-    color: '#8E8E93',
+    color: theme.textSecondary,
     lineHeight: 18,
   },
   emptySection: {
@@ -408,19 +411,19 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   emptyCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.card,
     borderRadius: 12,
     padding: 32,
     alignItems: 'center',
   },
   emptyTitle: {
-    color: '#000000',
+    color: theme.text,
     marginTop: 16,
     marginBottom: 8,
     textAlign: 'center',
   },
   emptyText: {
-    color: '#8E8E93',
+    color: theme.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
   },

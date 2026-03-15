@@ -4,6 +4,7 @@ import { Id } from '@/convex/_generated/dataModel';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from 'convex/react';
 import { router } from 'expo-router';
+import { useMemo } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -14,9 +15,12 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTheme, Theme } from '@/hooks/useTheme';
 
 export default function ScanHistoryScreen() {
   const products = useQuery(api.products.getAllProducts);
+  const { theme } = useTheme();
+  const styles = useMemo(() => createThemedStyles(theme), [theme]);
 
   const handleProductPress = (productId: Id<'products'>) => {
     router.push({
@@ -50,7 +54,7 @@ export default function ScanHistoryScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#000" />
+          <ActivityIndicator size="large" color={theme.text} />
           <Text style={[APPLE_TEXT_STYLES.body, styles.loadingText]}>
             Загрузка истории...
           </Text>
@@ -68,7 +72,7 @@ export default function ScanHistoryScreen() {
             onPress={() => router.back()}
             activeOpacity={0.7}
           >
-            <Ionicons name="chevron-back" size={24} color="#000" />
+            <Ionicons name="chevron-back" size={24} color={theme.text} />
           </TouchableOpacity>
           <Text style={[APPLE_TEXT_STYLES.largeTitle, styles.title]}>
             История сканов
@@ -76,7 +80,7 @@ export default function ScanHistoryScreen() {
         </View>
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIcon}>
-            <Ionicons name="images-outline" size={64} color="#C7C7CC" />
+            <Ionicons name="images-outline" size={64} color={theme.textTertiary} />
           </View>
           <Text style={[APPLE_TEXT_STYLES.title2, styles.emptyTitle]}>
             История пуста
@@ -106,7 +110,7 @@ export default function ScanHistoryScreen() {
           onPress={() => router.back()}
           activeOpacity={0.7}
         >
-          <Ionicons name="chevron-back" size={24} color="#000" />
+          <Ionicons name="chevron-back" size={24} color={theme.text} />
         </TouchableOpacity>
         <Text style={[APPLE_TEXT_STYLES.largeTitle, styles.title]}>
           История сканов
@@ -133,7 +137,7 @@ export default function ScanHistoryScreen() {
                 />
               ) : (
                 <View style={styles.productImagePlaceholder}>
-                  <Ionicons name="image-outline" size={32} color="#C7C7CC" />
+                  <Ionicons name="image-outline" size={32} color={theme.textTertiary} />
                 </View>
               )}
             </View>
@@ -157,7 +161,7 @@ export default function ScanHistoryScreen() {
                 {formatDate(item._creationTime)}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+            <Ionicons name="chevron-forward" size={20} color={theme.textTertiary} />
           </TouchableOpacity>
         )}
       />
@@ -165,10 +169,10 @@ export default function ScanHistoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createThemedStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.background,
   },
   header: {
     flexDirection: 'row',
@@ -182,7 +186,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   title: {
-    color: '#000000',
+    color: theme.text,
     flex: 1,
   },
   loadingContainer: {
@@ -192,7 +196,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    color: '#8E8E93',
+    color: theme.textSecondary,
   },
   listContent: {
     paddingHorizontal: 16,
@@ -201,12 +205,12 @@ const styles = StyleSheet.create({
   productItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.card,
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#E5E5EA',
+    borderColor: theme.borderLight,
   },
   productImageContainer: {
     width: 60,
@@ -214,7 +218,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: 'hidden',
     marginRight: 12,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: theme.backgroundSecondary,
   },
   productImage: {
     width: '100%',
@@ -225,22 +229,22 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F2F2F7',
+    backgroundColor: theme.backgroundSecondary,
   },
   productContent: {
     flex: 1,
     marginRight: 8,
   },
   productBrand: {
-    color: '#000000',
+    color: theme.text,
     marginBottom: 4,
   },
   productName: {
-    color: '#8E8E93',
+    color: theme.textSecondary,
     marginBottom: 4,
   },
   productDate: {
-    color: '#C7C7CC',
+    color: theme.textTertiary,
   },
   emptyContainer: {
     flex: 1,
@@ -252,22 +256,22 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   emptyTitle: {
-    color: '#000000',
+    color: theme.text,
     marginBottom: 8,
     textAlign: 'center',
   },
   emptyText: {
-    color: '#8E8E93',
+    color: theme.textSecondary,
     textAlign: 'center',
     marginBottom: 32,
   },
   emptyButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: theme.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 10,
   },
   emptyButtonText: {
-    color: '#FFFFFF',
+    color: theme.textInverse,
   },
 });

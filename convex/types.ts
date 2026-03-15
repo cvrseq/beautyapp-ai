@@ -87,15 +87,136 @@ export interface CosmeticAnalysis {
   ingredients: Ingredient[];
 }
 
-export type ProductCategory = 'skin' | 'hair' | 'mixed' | 'unknown';
+export type ProductCategory = 'skin' | 'hair' | 'mixed' | 'perfume' | 'unknown';
 
 export interface ProductAnalysisResult {
   brand: string;
   name: string;
   confidence: number;
-  analysis: CosmeticAnalysis;
+  analysis?: CosmeticAnalysis;
   category: ProductCategory;
   skinCompatibility?: SkinCompatibility;
   hairCompatibility?: HairCompatibility;
+  perfumeData?: PerfumeData;
+}
+
+// ===== PERFUME TYPES =====
+
+// Note pyramid (olfactory pyramid)
+export interface NotePyramid {
+  top: string[];      // Top notes (5-15 min)
+  heart: string[];    // Heart/middle notes (several hours)
+  base: string[];     // Base notes (6+ hours)
+}
+
+// Fragrance accord
+export interface FragranceAccord {
+  name: string;
+  strength: number;   // 0-100
+}
+
+// Seasonality ratings
+export interface Seasonality {
+  spring: number;     // 0-100
+  summer: number;     // 0-100
+  fall: number;       // 0-100
+  winter: number;     // 0-100
+}
+
+// Time of day ratings
+export interface TimeOfDay {
+  day: number;        // 0-100
+  evening: number;    // 0-100
+  night: number;      // 0-100
+}
+
+// Sillage levels
+export const SILLAGE_LEVELS = ['intimate', 'moderate', 'strong', 'enormous'] as const;
+export type SillageLevel = (typeof SILLAGE_LEVELS)[number];
+
+// Longevity descriptions
+export const LONGEVITY_DESCRIPTIONS = ['weak', 'moderate', 'good', 'excellent', 'eternal'] as const;
+export type LongevityDescription = (typeof LONGEVITY_DESCRIPTIONS)[number];
+
+// Concentration types
+export const CONCENTRATION_TYPES = [
+  'eau_fraiche',
+  'eau_de_cologne',
+  'eau_de_toilette',
+  'eau_de_parfum',
+  'parfum',
+  'extrait'
+] as const;
+export type ConcentrationType = (typeof CONCENTRATION_TYPES)[number];
+
+// Gender types
+export const GENDER_TYPES = ['masculine', 'feminine', 'unisex'] as const;
+export type GenderType = (typeof GENDER_TYPES)[number];
+
+// Longevity data
+export interface Longevity {
+  hours: number;                    // 1-24
+  rating: number;                   // 1-10
+  description: LongevityDescription;
+}
+
+// Sillage data
+export interface Sillage {
+  level: SillageLevel;
+  rating: number;                   // 1-10
+}
+
+// Full perfume data structure
+export interface PerfumeData {
+  notePyramid: NotePyramid;
+  accords: FragranceAccord[];
+  seasonality: Seasonality;
+  timeOfDay: TimeOfDay;
+  longevity: Longevity;
+  sillage: Sillage;
+  concentration?: ConcentrationType;
+  gender?: GenderType;
+  releaseYear?: number;
+  perfumer?: string;
+}
+
+// User types for auth
+export interface UserProfile {
+  skinType?: string;
+  hairType?: string;
+  age?: string;
+  lifestyle?: string;
+  location?: string;
+}
+
+export type AuthType = 'anonymous' | 'registered';
+
+export interface User {
+  _id: string;
+  authType: AuthType;
+  email?: string;
+  displayName?: string;
+  avatarUrl?: string;
+  deviceId?: string;
+  profile?: UserProfile;
+  createdAt: number;
+  lastActiveAt: number;
+}
+
+export interface Comment {
+  _id: string;
+  productId: string;
+  userId: string;
+  text: string;
+  createdAt: number;
+  updatedAt?: number;
+  isDeleted?: boolean;
+}
+
+export interface CommentWithUser extends Comment {
+  user?: {
+    displayName: string;
+    avatarUrl?: string;
+  };
 }
 

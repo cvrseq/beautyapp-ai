@@ -2,7 +2,7 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { action } from './_generated/server';
 import { API_CONFIG, CONFIDENCE_THRESHOLD } from './constants';
-import { type CosmeticAnalysis, type ProductCategory } from './types';
+import { type CosmeticAnalysis, type ProductCategory, type PerfumeData } from './types';
 
 type ProductResult =
   | { error: string }
@@ -10,9 +10,35 @@ type ProductResult =
       productId: string;
       brand: string;
       name: string;
-      analysis: CosmeticAnalysis;
+      analysis?: CosmeticAnalysis;
+      perfumeData?: PerfumeData;
       price: string;
+      category?: ProductCategory;
+      fromCache?: boolean; // Flag indicating if result came from cache
     };
+
+// Simple hash function for image caching
+// Uses a combination of length and sampling to create a fast hash
+function generateImageHash(base64: string): string {
+  // Take samples from the image to create a fingerprint
+  const length = base64.length;
+  let hash = length.toString(36);
+
+  // Sample at fixed intervals
+  const sampleSize = 100;
+  const step = Math.floor(length / sampleSize);
+
+  for (let i = 0; i < sampleSize && i * step < length; i++) {
+    const charCode = base64.charCodeAt(i * step);
+    hash += charCode.toString(36);
+  }
+
+  // Add start and end samples for uniqueness
+  hash += base64.substring(0, 50);
+  hash += base64.substring(length - 50);
+
+  return hash;
+}
 
 export const analyzeProduct = action({
   args: {
@@ -65,7 +91,134 @@ export const analyzeProduct = action({
     ))
   },
   handler: async (ctx, args): Promise<ProductResult> => {
-    // 1. Распознавание через ИИ
+    // ========================================
+    // PHASE 0: Check image hash cache
+    // If we've seen this exact image before, return cached result immediately
+    // ========================================
+    const imageHash = generateImageHash(args.imageBase64);
+
+    const cachedByHash = await ctx.runQuery(internal.products.findByImageHash, {
+      hash: imageHash,
+    });
+
+    if (cachedByHash) {
+      console.log('Cache hit: Image hash found, returning cached product');
+
+      // Return cached product based on category
+      if (cachedByHash.category === 'perfume' && cachedByHash.perfumeData) {
+        return {
+          productId: cachedByHash._id,
+          brand: cachedByHash.brand,
+          name: cachedByHash.name,
+          perfumeData: cachedByHash.perfumeData as PerfumeData,
+          price: cachedByHash.priceEstimate,
+          category: 'perfume',
+          fromCache: true,
+        };
+      }
+
+      // Cosmetics
+      let analysis: CosmeticAnalysis;
+      try {
+        analysis = typeof cachedByHash.ingredientsAnalysis === 'string'
+          ? JSON.parse(cachedByHash.ingredientsAnalysis) as CosmeticAnalysis
+          : cachedByHash.ingredientsAnalysis as CosmeticAnalysis;
+      } catch (e) {
+        console.error('Failed to parse cached analysis from hash lookup', e);
+        // Continue to Phase 1 if parsing fails
+      }
+
+      if (analysis!) {
+        return {
+          productId: cachedByHash._id,
+          brand: cachedByHash.brand,
+          name: cachedByHash.name,
+          analysis,
+          price: cachedByHash.priceEstimate,
+          category: cachedByHash.category as ProductCategory,
+          fromCache: true,
+        };
+      }
+    }
+
+    // ========================================
+    // PHASE 1: Quick identification (brand + name only)
+    // Lightweight AI call to check cache before full analysis
+    // ========================================
+    const quickResult = await ctx.runAction(internal.ai_logic.quickIdentifyProduct, {
+      imageBase64: args.imageBase64,
+    });
+
+    // If quick identification succeeded, check product cache
+    if (quickResult && typeof quickResult === 'object' && !('error' in quickResult)) {
+      const { brand, name, confidence, category } = quickResult as {
+        brand: string;
+        name: string;
+        confidence: number;
+        category: ProductCategory;
+      };
+
+      if (confidence >= CONFIDENCE_THRESHOLD) {
+        // Check if product exists in cache by brand + name
+        const existingProduct = await ctx.runQuery(internal.products.findByBrandAndName, {
+          brand,
+          name,
+        });
+
+        if (existingProduct) {
+          console.log('Cache hit: Product found by brand+name after quick identification');
+
+          // Save image hash for future lookups
+          await ctx.runMutation(internal.products.saveImageHash, {
+            hash: imageHash,
+            productId: existingProduct._id,
+          });
+
+          // Return cached product
+          if (existingProduct.category === 'perfume' && existingProduct.perfumeData) {
+            return {
+              productId: existingProduct._id,
+              brand: existingProduct.brand,
+              name: existingProduct.name,
+              perfumeData: existingProduct.perfumeData as PerfumeData,
+              price: existingProduct.priceEstimate,
+              category: 'perfume',
+              fromCache: true,
+            };
+          }
+
+          // Cosmetics
+          let analysis: CosmeticAnalysis;
+          try {
+            analysis = typeof existingProduct.ingredientsAnalysis === 'string'
+              ? JSON.parse(existingProduct.ingredientsAnalysis) as CosmeticAnalysis
+              : existingProduct.ingredientsAnalysis as CosmeticAnalysis;
+          } catch (e) {
+            console.error('Failed to parse cached analysis', e);
+            // Continue to full analysis if parsing fails
+          }
+
+          if (analysis!) {
+            return {
+              productId: existingProduct._id,
+              brand: existingProduct.brand,
+              name: existingProduct.name,
+              analysis,
+              price: existingProduct.priceEstimate,
+              category: existingProduct.category as ProductCategory,
+              fromCache: true,
+            };
+          }
+        }
+      }
+    }
+
+    // ========================================
+    // PHASE 2: Full AI analysis
+    // Product not in cache, need complete analysis
+    // ========================================
+    console.log('Cache miss: Running full AI analysis');
+
     const aiResult = await ctx.runAction(internal.ai_logic.identifyProduct, {
       imageBase64: args.imageBase64,
       skinType: args.skinType,
@@ -89,11 +242,26 @@ export const analyzeProduct = action({
     if (
       !('brand' in aiResult) || typeof aiResult.brand !== 'string' ||
       !('name' in aiResult) || typeof aiResult.name !== 'string' ||
-      !('confidence' in aiResult) || typeof aiResult.confidence !== 'number' ||
-      !('analysis' in aiResult)
+      !('confidence' in aiResult) || typeof aiResult.confidence !== 'number'
     ) {
       return {
         error: 'Некорректный ответ от ИИ. Попробуйте ещё раз.',
+      };
+    }
+
+    // Check category to determine if it's perfume or cosmetics
+    const category = ('category' in aiResult ? aiResult.category : 'unknown') as ProductCategory;
+    const isPerfume = category === 'perfume';
+
+    // For cosmetics, analysis is required; for perfume, perfumeData is required
+    if (!isPerfume && !('analysis' in aiResult)) {
+      return {
+        error: 'Некорректный ответ от ИИ. Попробуйте ещё раз.',
+      };
+    }
+    if (isPerfume && !('perfumeData' in aiResult)) {
+      return {
+        error: 'Некорректный ответ от ИИ для парфюма. Попробуйте ещё раз.',
       };
     }
 
@@ -107,20 +275,46 @@ export const analyzeProduct = action({
       brand: string;
       name: string;
       confidence: number;
-      analysis: CosmeticAnalysis;
+      analysis?: CosmeticAnalysis;
+      perfumeData?: PerfumeData;
       category?: ProductCategory;
       skinCompatibility?: unknown;
       hairCompatibility?: unknown;
     };
 
-    // 2. Проверка кэша: ищем существующий продукт по brand + name
+    // ========================================
+    // PHASE 3: Final cache check before saving
+    // Double-check cache after full analysis (in case quick ID missed a match)
+    // ========================================
     const existingProduct = await ctx.runQuery(internal.products.findByBrandAndName, {
       brand: productInfo.brand,
       name: productInfo.name,
     });
 
-    // Если продукт найден в кэше, возвращаем его ID без повторного анализа
+    // Если продукт найден в кэше, сохраняем хеш и возвращаем результат
     if (existingProduct) {
+      console.log('Cache hit: Product found after full analysis');
+
+      // Save image hash for future lookups
+      await ctx.runMutation(internal.products.saveImageHash, {
+        hash: imageHash,
+        productId: existingProduct._id,
+      });
+
+      // Check if it's a perfume
+      if (existingProduct.category === 'perfume' && existingProduct.perfumeData) {
+        return {
+          productId: existingProduct._id,
+          brand: existingProduct.brand,
+          name: existingProduct.name,
+          perfumeData: existingProduct.perfumeData as PerfumeData,
+          price: existingProduct.priceEstimate,
+          category: 'perfume',
+          fromCache: true,
+        };
+      }
+
+      // It's cosmetics
       let analysis: CosmeticAnalysis;
       try {
         analysis = typeof existingProduct.ingredientsAnalysis === 'string'
@@ -137,10 +331,17 @@ export const analyzeProduct = action({
         name: existingProduct.name,
         analysis,
         price: existingProduct.priceEstimate,
+        category: existingProduct.category as ProductCategory,
+        fromCache: true,
       };
     }
 
-    // 3. Реальная логика Tavily (Добавляем поиск цен) - только если продукт не найден в кэше
+    // ========================================
+    // PHASE 4: Save new product
+    // Product not in cache, save with price lookup
+    // ========================================
+
+    // 4a. Поиск цен через Tavily
     let searchPrice = 'Уточняется';
     try {
       const searchResponse = await fetch(API_CONFIG.TAVILY_BASE_URL, {
@@ -160,8 +361,7 @@ export const analyzeProduct = action({
       // тихо падаем на дефолтное "Уточняется"
     }
 
-    // 4. Конвертация base64 в Blob (Convex-way)
-    // Используем стандартный подход для браузерных сред/Edge
+    // 4b. Конвертация base64 в Blob и сохранение в storage
     const binary = atob(args.imageBase64);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) {
@@ -171,7 +371,7 @@ export const analyzeProduct = action({
       new Blob([bytes], { type: 'image/jpeg' })
     );
 
-    // 5. Сохранение в БД (кэширование для будущих запросов)
+    // 4c. Сохранение продукта в БД
     const productId: string = await ctx.runMutation(
       internal.products.saveProduct,
       {
@@ -183,8 +383,30 @@ export const analyzeProduct = action({
         category: productInfo.category || 'unknown',
         skinCompatibility: productInfo.skinCompatibility as Record<string, { status: string; score: number }> | undefined,
         hairCompatibility: productInfo.hairCompatibility as Record<string, { status: string; score: number }> | undefined,
+        perfumeData: productInfo.perfumeData as PerfumeData | undefined,
       }
     );
+
+    // 4d. Сохранение хеша изображения для будущих запросов
+    await ctx.runMutation(internal.products.saveImageHash, {
+      hash: imageHash,
+      productId: productId as unknown as import('./_generated/dataModel').Id<'products'>,
+    });
+
+    console.log('New product saved with image hash');
+
+    // Return appropriate response based on product type
+    if (isPerfume && productInfo.perfumeData) {
+      return {
+        productId,
+        brand: productInfo.brand,
+        name: productInfo.name,
+        perfumeData: productInfo.perfumeData,
+        price: searchPrice,
+        category: 'perfume',
+        fromCache: false,
+      };
+    }
 
     return {
       productId,
@@ -192,6 +414,8 @@ export const analyzeProduct = action({
       name: productInfo.name,
       analysis: productInfo.analysis,
       price: searchPrice,
+      category: productInfo.category,
+      fromCache: false,
     };
   },
 });

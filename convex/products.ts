@@ -1,4 +1,5 @@
 import { v } from 'convex/values';
+import { Id } from './_generated/dataModel';
 import { internalMutation, internalQuery, query } from './_generated/server';
 import { SEARCH, VALIDATION } from './constants';
 
@@ -6,7 +7,7 @@ export const saveProduct = internalMutation({
   args: {
     brand: v.string(),
     name: v.string(),
-    analysis: v.object({
+    analysis: v.optional(v.object({
       pros: v.array(v.string()),
       cons: v.array(v.string()),
       hazards: v.union(v.literal('low'), v.literal('medium'), v.literal('high')),
@@ -15,13 +16,15 @@ export const saveProduct = internalMutation({
         status: v.union(v.literal('green'), v.literal('yellow'), v.literal('red')),
         desc: v.string(),
       })),
-    }),
+    })),
     price: v.string(),
     storageId: v.string(),
+    scannedBy: v.optional(v.id('users')),
     category: v.optional(v.union(
       v.literal('skin'),
       v.literal('hair'),
       v.literal('mixed'),
+      v.literal('perfume'),
       v.literal('unknown')
     )),
     skinCompatibility: v.optional(v.object({
@@ -45,21 +48,64 @@ export const saveProduct = internalMutation({
       normal: v.optional(v.object({ status: v.string(), score: v.number() })),
       damaged: v.optional(v.object({ status: v.string(), score: v.number() })),
     })),
+    perfumeData: v.optional(v.object({
+      notePyramid: v.object({
+        top: v.array(v.string()),
+        heart: v.array(v.string()),
+        base: v.array(v.string()),
+      }),
+      accords: v.array(v.object({
+        name: v.string(),
+        strength: v.number(),
+      })),
+      seasonality: v.object({
+        spring: v.number(),
+        summer: v.number(),
+        fall: v.number(),
+        winter: v.number(),
+      }),
+      timeOfDay: v.object({
+        day: v.number(),
+        evening: v.number(),
+        night: v.number(),
+      }),
+      longevity: v.object({
+        hours: v.number(),
+        rating: v.number(),
+        description: v.string(),
+      }),
+      sillage: v.object({
+        level: v.union(
+          v.literal('intimate'),
+          v.literal('moderate'),
+          v.literal('strong'),
+          v.literal('enormous')
+        ),
+        rating: v.number(),
+      }),
+      concentration: v.optional(v.string()),
+      gender: v.optional(v.string()),
+      releaseYear: v.optional(v.number()),
+      perfumer: v.optional(v.string()),
+    })),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert('products', {
       brand: args.brand,
       name: args.name,
-      ingredientsAnalysis: JSON.stringify(args.analysis), // сохраняем как строку для простоты
+      ingredientsAnalysis: args.analysis ? JSON.stringify(args.analysis) : '',
       priceEstimate: args.price,
       imageUrl: args.storageId,
-      rating: 0, // можно вычислять на основе анализа
+      rating: 0,
       description: '',
-      pros: args.analysis.pros || [],
-      cons: args.analysis.cons || [],
+      pros: args.analysis?.pros || [],
+      cons: args.analysis?.cons || [],
       category: args.category || 'unknown',
+      scannedBy: args.scannedBy,
+      commentsCount: 0,
       skinTypeCompatibility: args.skinCompatibility || undefined,
       hairTypeCompatibility: args.hairCompatibility || undefined,
+      perfumeData: args.perfumeData || undefined,
     });
   },
 });
@@ -182,12 +228,71 @@ export const getById = query({
   },
 });
 
+// Get scan feed for community section (recent scans with user info)
+export const getScanFeed = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit || 20;
+
+    // Get all products sorted by creation time
+    const products = await ctx.db.query('products').collect();
+
+    // Sort by creation time (newest first) and limit
+    const sortedProducts = products
+      .sort((a, b) => b._creationTime - a._creationTime)
+      .slice(0, limit);
+
+    // Get image URLs and user info for each product
+    const productsWithDetails = await Promise.all(
+      sortedProducts.map(async (product) => {
+        // Get image URL
+        const storageId = product.imageUrl as string;
+        let imageUrl = product.imageUrl;
+        try {
+          const url = await ctx.storage.getUrl(storageId);
+          if (url) imageUrl = url;
+        } catch {
+          // Keep original imageUrl if storage fails
+        }
+
+        // Get user info if scannedBy exists
+        let scannedByUser = null;
+        if (product.scannedBy) {
+          const user = await ctx.db.get(product.scannedBy);
+          if (user) {
+            scannedByUser = {
+              _id: user._id,
+              displayName: user.displayName || 'Пользователь',
+              avatarUrl: user.avatarUrl,
+            };
+          }
+        }
+
+        return {
+          _id: product._id,
+          brand: product.brand,
+          name: product.name,
+          category: product.category,
+          imageUrl,
+          commentsCount: product.commentsCount || 0,
+          createdAt: product._creationTime,
+          scannedBy: scannedByUser,
+        };
+      })
+    );
+
+    return productsWithDetails;
+  },
+});
+
 // Получить все продукты для истории сканов, отсортированные по дате (новые сверху)
 export const getAllProducts = query({
   args: {},
   handler: async (ctx) => {
     const products = await ctx.db.query('products').collect();
-    
+
     // Получаем URL-ы для изображений и сортируем по _creationTime (новые сверху)
     const productsWithUrls = await Promise.all(
       products.map(async (product) => {
@@ -199,7 +304,64 @@ export const getAllProducts = query({
         };
       })
     );
-    
+
     return productsWithUrls.sort((a, b) => b._creationTime - a._creationTime);
+  },
+});
+
+// ========================================
+// Image Hash Caching Functions
+// ========================================
+
+// Find product by image hash (to avoid duplicate AI calls)
+export const findByImageHash = internalQuery({
+  args: { hash: v.string() },
+  handler: async (ctx, args) => {
+    const hashEntry = await ctx.db
+      .query('imageHashes')
+      .withIndex('by_hash', (q) => q.eq('hash', args.hash))
+      .first();
+
+    if (!hashEntry) {
+      return null;
+    }
+
+    // Get the associated product
+    const product = await ctx.db.get(hashEntry.productId);
+    return product;
+  },
+});
+
+// Save image hash to product mapping
+export const saveImageHash = internalMutation({
+  args: {
+    hash: v.string(),
+    productId: v.id('products'),
+  },
+  handler: async (ctx, args) => {
+    // Check if hash already exists
+    const existing = await ctx.db
+      .query('imageHashes')
+      .withIndex('by_hash', (q) => q.eq('hash', args.hash))
+      .first();
+
+    if (existing) {
+      return existing._id;
+    }
+
+    // Create new hash entry
+    return await ctx.db.insert('imageHashes', {
+      hash: args.hash,
+      productId: args.productId,
+      createdAt: Date.now(),
+    });
+  },
+});
+
+// Get product by ID (internal version for use in actions)
+export const getProductById = internalQuery({
+  args: { id: v.id('products') },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
   },
 });

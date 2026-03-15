@@ -5,7 +5,7 @@ import { api } from '@/convex/_generated/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from 'convex/react';
 import { router } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -16,13 +16,16 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTheme, Theme } from '@/hooks/useTheme';
 
 export default function SearchScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<TextInput>(null);
-  
+  const { theme } = useTheme();
+  const styles = useMemo(() => createThemedStyles(theme), [theme]);
+
   // Используем поиск только когда запрос не пустой и длина >= MIN_QUERY_LENGTH
   const shouldSearch = debouncedQuery.trim().length >= SEARCH.MIN_QUERY_LENGTH;
   const products = useQuery(
@@ -63,13 +66,13 @@ export default function SearchScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header with Back Button */}
       <View style={styles.headerContainer}>
-        <TouchableOpacity 
-          onPress={handleCancel} 
+        <TouchableOpacity
+          onPress={handleCancel}
           style={styles.backButton}
           activeOpacity={0.7}
         >
           <View style={styles.backButtonContent}>
-            <Ionicons name="chevron-back" size={24} color="#007AFF" />
+            <Ionicons name="chevron-back" size={24} color={theme.primary} />
             <Text style={[APPLE_TEXT_STYLES.headline, styles.backButtonText]}>
               Beauty AI
             </Text>
@@ -80,12 +83,12 @@ export default function SearchScreen() {
       {/* Search Bar */}
       <View style={styles.searchBarContainer}>
         <View style={styles.searchBar}>
-          <Ionicons name="search" size={18} color="#8E8E93" style={styles.searchIcon} />
+          <Ionicons name="search" size={18} color={theme.textSecondary} style={styles.searchIcon} />
           <TextInput
             ref={inputRef}
             style={[APPLE_TEXT_STYLES.body, styles.searchInput]}
             placeholder="Введи запрос"
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={theme.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
             onFocus={() => setIsFocused(true)}
@@ -95,10 +98,10 @@ export default function SearchScreen() {
           />
           {searchQuery.length > 0 ? (
             <TouchableOpacity onPress={handleClear} activeOpacity={0.7}>
-              <Ionicons name="close-circle" size={18} color="#8E8E93" style={styles.rightIcon} />
+              <Ionicons name="close-circle" size={18} color={theme.textSecondary} style={styles.rightIcon} />
             </TouchableOpacity>
           ) : (
-            <Ionicons name="mic-outline" size={18} color="#8E8E93" style={styles.rightIcon} />
+            <Ionicons name="mic-outline" size={18} color={theme.textSecondary} style={styles.rightIcon} />
           )}
         </View>
       </View>
@@ -108,13 +111,13 @@ export default function SearchScreen() {
         <View style={styles.resultsContainer}>
           {products === undefined ? (
             <View style={styles.emptyState}>
-              <ActivityIndicator size="large" color="#000" />
+              <ActivityIndicator size="large" color={theme.text} />
               <Text style={[APPLE_TEXT_STYLES.body, styles.emptyStateText]}>Ищем продукты...</Text>
             </View>
           ) : products.length === 0 ? (
             <View style={styles.emptyState}>
               <View style={styles.emptyIcon}>
-                <Ionicons name="search-outline" size={40} color="#C7C7CC" />
+                <Ionicons name="search-outline" size={40} color={theme.textTertiary} />
               </View>
               <Text style={[APPLE_TEXT_STYLES.headline, styles.emptyStateTitle]} numberOfLines={1}>
                 Ничего не найдено
@@ -148,7 +151,7 @@ export default function SearchScreen() {
                       </Text>
                     )}
                   </View>
-                  <ChevronArrow color="#C7C7CC" size={20} direction="right" />
+                  <ChevronArrow color={theme.textTertiary} size={20} direction="right" />
                 </TouchableOpacity>
               )}
               ListEmptyComponent={
@@ -166,16 +169,16 @@ export default function SearchScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createThemedStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: theme.backgroundSecondary,
   },
   headerContainer: {
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 12,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: theme.backgroundSecondary,
   },
   backButton: {
     padding: 4,
@@ -185,18 +188,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backButtonText: {
-    color: '#007AFF',
+    color: theme.primary,
     marginLeft: -2,
   },
   searchBarContainer: {
     paddingHorizontal: 16,
     paddingBottom: 12,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: theme.backgroundSecondary,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E5E5EA',
+    backgroundColor: theme.backgroundTertiary,
     borderRadius: 10,
     paddingHorizontal: 12,
     height: 36,
@@ -206,7 +209,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: '#000000',
+    color: theme.text,
     paddingVertical: 0,
   },
   rightIcon: {
@@ -225,22 +228,22 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: theme.backgroundSecondary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
   },
   emptyStateTitle: {
-    color: '#000000',
+    color: theme.text,
     marginBottom: 8,
     textAlign: 'center',
   },
   emptyStateText: {
-    color: '#8E8E93',
+    color: theme.textSecondary,
     marginTop: 16,
   },
   emptyStateSubtitle: {
-    color: '#8E8E93',
+    color: theme.textSecondary,
     textAlign: 'center',
   },
   listContent: {
@@ -249,7 +252,7 @@ const styles = StyleSheet.create({
   productItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.card,
     borderRadius: 10,
     padding: 16,
     marginBottom: 8,
@@ -259,17 +262,16 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   productBrand: {
-    color: '#8E8E93',
+    color: theme.textSecondary,
     marginBottom: 4,
     fontWeight: '500',
     textTransform: 'uppercase',
   },
   productName: {
-    color: '#000000',
+    color: theme.text,
     marginBottom: 4,
   },
   productPrice: {
-    color: '#8E8E93',
+    color: theme.textSecondary,
   },
 });
-

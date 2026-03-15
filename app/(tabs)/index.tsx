@@ -1,16 +1,19 @@
 import { ChevronArrow } from '@/components/ChevronArrow';
+import { FeedList } from '@/components/feed/FeedList';
 import { APPLE_TEXT_STYLES } from '@/constants/fonts';
-import { useHairType } from '@/hooks/useHairType';
-import { useSkinType } from '@/hooks/useSkinType';
 import { useAge } from '@/hooks/useAge';
+import { useAuth } from '@/hooks/useAuth';
+import { useHairType } from '@/hooks/useHairType';
 import { useLifestyle } from '@/hooks/useLifestyle';
 import { useLocation } from '@/hooks/useLocation';
+import { useSkinType } from '@/hooks/useSkinType';
+import { useTheme, Theme } from '@/hooks/useTheme';
 import { HAIR_TYPE_SHORT_LABELS } from '@/types/hairType';
 import { SKIN_TYPE_SHORT_LABELS } from '@/types/skinType';
 import { AGE_RANGE_LABELS, LIFESTYLE_LABELS, LOCATION_LABELS } from '@/types/userProfile';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -20,6 +23,10 @@ export default function HomeScreen() {
   const { age, isLoading: isLoadingAge, loadAge } = useAge();
   const { lifestyle, isLoading: isLoadingLifestyle, loadLifestyle } = useLifestyle();
   const { location, isLoading: isLoadingLocation, loadLocation } = useLocation();
+  const { user, isRegistered } = useAuth();
+  const { theme, isDark, toggleTheme } = useTheme();
+
+  const themedStyles = useMemo(() => createThemedStyles(theme), [theme]);
 
   // Обновляем данные при возврате на экран
   useFocusEffect(
@@ -33,124 +40,151 @@ export default function HomeScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={themedStyles.container} edges={['top']}>
+      <ScrollView style={themedStyles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <View style={styles.header}>
-          <Text style={[APPLE_TEXT_STYLES.largeTitle, styles.title]}>
+        <View style={themedStyles.header}>
+          <Text style={[APPLE_TEXT_STYLES.largeTitle, themedStyles.title]}>
             Beauty AI
           </Text>
+          {/* Theme Toggle Button */}
+          <TouchableOpacity
+            style={themedStyles.themeButton}
+            onPress={toggleTheme}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={isDark ? 'sunny' : 'moon'}
+              size={24}
+              color={theme.primary}
+            />
+          </TouchableOpacity>
         </View>
 
         {/* Search Bar */}
-        <TouchableOpacity 
-          style={styles.searchBar}
+        <TouchableOpacity
+          style={themedStyles.searchBar}
           onPress={() => router.push('/search')}
           activeOpacity={0.7}
         >
-          <Ionicons name="search" size={18} color="#8E8E93" style={styles.searchIcon} />
-          <Text style={[APPLE_TEXT_STYLES.body, styles.searchPlaceholder]}>
+          <Ionicons name="search" size={18} color={theme.textSecondary} style={themedStyles.searchIcon} />
+          <Text style={[APPLE_TEXT_STYLES.body, themedStyles.searchPlaceholder]}>
             Введи запрос
           </Text>
-          <Ionicons name="mic-outline" size={18} color="#8E8E93" style={styles.micIcon} />
+          <Ionicons name="mic-outline" size={18} color={theme.textSecondary} style={themedStyles.micIcon} />
         </TouchableOpacity>
 
         {/* Profile Card */}
-        <TouchableOpacity 
-          style={styles.profileCard}
+        <TouchableOpacity
+          style={themedStyles.profileCard}
           onPress={() => router.push('/profile')}
           activeOpacity={0.7}
         >
-            <View style={styles.profileIconContainer}>
-              <View style={styles.profileIconOuter}>
-                <View style={styles.profileIconInner}>
-                  <Ionicons name="person-circle" size={28} color="#007AFF" />
-                </View>
+          <View style={themedStyles.profileIconContainer}>
+            <View style={[themedStyles.profileIconOuter, { borderColor: theme.primary }]}>
+              <View style={themedStyles.profileIconInner}>
+                <Ionicons name="person-circle" size={28} color={theme.primary} />
               </View>
             </View>
-            <View style={styles.profileContent}>
-              <Text style={[APPLE_TEXT_STYLES.headline, styles.profileTitle]}>
-                Beauty Profile
-              </Text>
-              <Text style={[APPLE_TEXT_STYLES.subhead, styles.profileSubtitle]}>
-                {skinType || hairType 
-                  ? `${skinType ? SKIN_TYPE_SHORT_LABELS[skinType] : ''}${skinType && hairType ? ', ' : ''}${hairType ? HAIR_TYPE_SHORT_LABELS[hairType] : ''}`
-                  : 'Настрой свой профиль для персонализированных рекомендаций'}
-              </Text>
-            </View>
-            <ChevronArrow color="#C7C7CC" size={20} direction="right" />
-          </TouchableOpacity>
+          </View>
+          <View style={themedStyles.profileContent}>
+            <Text style={[APPLE_TEXT_STYLES.headline, themedStyles.profileTitle]}>
+              Beauty Profile
+            </Text>
+            <Text style={[APPLE_TEXT_STYLES.subhead, themedStyles.profileSubtitle]}>
+              {skinType || hairType
+                ? `${skinType ? SKIN_TYPE_SHORT_LABELS[skinType] : ''}${skinType && hairType ? ', ' : ''}${hairType ? HAIR_TYPE_SHORT_LABELS[hairType] : ''}`
+                : 'Настрой свой профиль для персонализированных рекомендаций'}
+            </Text>
+          </View>
+          <ChevronArrow color={theme.textTertiary} size={20} direction="right" />
+        </TouchableOpacity>
 
         {/* Main Actions Section */}
-        <View style={styles.section}>
+        <View style={themedStyles.section}>
           <SettingsItem
             icon="scan-circle"
-            iconColor="#007AFF"
+            iconColor={theme.primary}
             title="Умный сканер"
             subtitle="Наведи камеру на состав продукта"
             onPress={() => router.push('/camera')}
             isLast={true}
+            theme={theme}
           />
         </View>
 
         {/* Profile Settings Section */}
-        <View style={styles.section}>
+        <View style={themedStyles.section}>
           <SettingsItem
             icon="person-circle-outline"
-            iconColor="#8E8E93"
+            iconColor={theme.textSecondary}
             title="Тип кожи"
             subtitle={skinType ? SKIN_TYPE_SHORT_LABELS[skinType] : 'Не настроено'}
             onPress={() => router.push('/skin-type-quiz')}
             showPrompt={!skinType && !isLoadingSkin}
             isLast={false}
+            theme={theme}
           />
           <SettingsItem
             icon="cut-outline"
-            iconColor="#8E8E93"
+            iconColor={theme.textSecondary}
             title="Тип волос"
             subtitle={hairType ? HAIR_TYPE_SHORT_LABELS[hairType] : 'Не настроено'}
             onPress={() => router.push('/hair-type-quiz')}
             showPrompt={!hairType && !isLoadingHair}
             isLast={false}
+            theme={theme}
           />
           <SettingsItem
             icon="calendar-outline"
-            iconColor="#8E8E93"
+            iconColor={theme.textSecondary}
             title="Возраст"
             subtitle={age ? AGE_RANGE_LABELS[age] : 'Не указан'}
             onPress={() => router.push('/age-quiz')}
             showPrompt={!age && !isLoadingAge}
             isLast={false}
+            theme={theme}
           />
           <SettingsItem
             icon="fitness-outline"
-            iconColor="#8E8E93"
+            iconColor={theme.textSecondary}
             title="Образ жизни"
             subtitle={lifestyle ? LIFESTYLE_LABELS[lifestyle] : 'Не указан'}
             onPress={() => router.push('/lifestyle-quiz')}
             showPrompt={!lifestyle && !isLoadingLifestyle}
             isLast={false}
+            theme={theme}
           />
           <SettingsItem
             icon="location-outline"
-            iconColor="#8E8E93"
+            iconColor={theme.textSecondary}
             title="Локация"
             subtitle={location ? LOCATION_LABELS[location] : 'Не указана'}
             onPress={() => router.push('/location-quiz')}
             showPrompt={!location && !isLoadingLocation}
             isLast={true}
+            theme={theme}
           />
         </View>
 
+        {/* Community Feed Section */}
+        <View style={themedStyles.feedSection}>
+          <Text style={[APPLE_TEXT_STYLES.caption1, themedStyles.feedHeader]}>
+            СООБЩЕСТВО
+          </Text>
+          <FeedList isUserRegistered={isRegistered} />
+        </View>
+
         {/* History Section */}
-        <View style={styles.section}>
+        <View style={themedStyles.section}>
           <SettingsItem
             icon="images-outline"
-            iconColor="#8E8E93"
+            iconColor={theme.textSecondary}
             title="История сканов"
             subtitle="Просмотр сохранённых продуктов"
             onPress={() => router.push('/scan-history')}
             isLast={true}
+            theme={theme}
           />
         </View>
       </ScrollView>
@@ -166,9 +200,12 @@ interface SettingsItemProps {
   onPress: () => void;
   showPrompt?: boolean;
   isLast?: boolean;
+  theme: Theme;
 }
 
-const SettingsItem = ({ icon, iconColor, title, subtitle, onPress, showPrompt, isLast = false }: SettingsItemProps) => {
+const SettingsItem = ({ icon, iconColor, title, subtitle, onPress, showPrompt, isLast = false, theme }: SettingsItemProps) => {
+  const styles = useMemo(() => createThemedStyles(theme), [theme]);
+
   return (
     <TouchableOpacity
       style={[styles.settingsItem, isLast && styles.settingsItemLast]}
@@ -188,31 +225,42 @@ const SettingsItem = ({ icon, iconColor, title, subtitle, onPress, showPrompt, i
           </Text>
         )}
       </View>
-      <ChevronArrow color="#C7C7CC" size={20} direction="right" />
+      <ChevronArrow color={theme.textTertiary} size={20} direction="right" />
     </TouchableOpacity>
   );
 };
 
-const styles = StyleSheet.create({
+const createThemedStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.backgroundSecondary,
   },
   scrollView: {
     flex: 1,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 12,
   },
   title: {
-    color: '#000000',
+    color: theme.text,
+  },
+  themeButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: theme.card,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F2F2F7',
+    backgroundColor: theme.searchBar,
     borderRadius: 10,
     marginHorizontal: 16,
     marginBottom: 16,
@@ -224,7 +272,7 @@ const styles = StyleSheet.create({
   },
   searchPlaceholder: {
     flex: 1,
-    color: '#8E8E93',
+    color: theme.textSecondary,
   },
   micIcon: {
     marginLeft: 8,
@@ -232,7 +280,7 @@ const styles = StyleSheet.create({
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.card,
     borderRadius: 10,
     marginHorizontal: 16,
     marginBottom: 32,
@@ -247,7 +295,6 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     borderWidth: 2,
     borderStyle: 'dashed',
-    borderColor: '#007AFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -255,7 +302,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: theme.backgroundSecondary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -264,14 +311,14 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   profileTitle: {
-    color: '#000000',
+    color: theme.text,
     marginBottom: 4,
   },
   profileSubtitle: {
-    color: '#8E8E93',
+    color: theme.textSecondary,
   },
   section: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.card,
     borderRadius: 10,
     marginHorizontal: 16,
     marginBottom: 32,
@@ -282,9 +329,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.card,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#C6C6C8',
+    borderBottomColor: theme.border,
   },
   settingsItemLast: {
     borderBottomWidth: 0,
@@ -297,7 +344,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   settingsIconPrompt: {
-    backgroundColor: '#F2F2F7',
+    backgroundColor: theme.backgroundSecondary,
     borderRadius: 16,
   },
   settingsContent: {
@@ -305,10 +352,21 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   settingsTitle: {
-    color: '#000000',
+    color: theme.text,
     marginBottom: 2,
   },
   settingsSubtitle: {
-    color: '#8E8E93',
+    color: theme.textSecondary,
+  },
+  feedSection: {
+    marginBottom: 32,
+  },
+  feedHeader: {
+    color: theme.textSecondary,
+    fontWeight: '600',
+    marginBottom: 12,
+    marginHorizontal: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 });
