@@ -87,7 +87,7 @@ export interface CosmeticAnalysis {
   ingredients: Ingredient[];
 }
 
-export type ProductCategory = 'skin' | 'hair' | 'mixed' | 'perfume' | 'unknown';
+export type ProductCategory = 'skin' | 'hair' | 'mixed' | 'perfume' | 'unknown' | 'not_beauty';
 
 export interface ProductAnalysisResult {
   brand: string;

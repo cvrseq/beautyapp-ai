@@ -36,6 +36,7 @@ function isValidHairStatus(value: string): value is HairCompatibilityStatus {
 function normalizeCategory(value: unknown): ProductCategory {
   if (typeof value === 'string') {
     const lower = value.toLowerCase();
+    if (lower === 'not_beauty' || lower === 'not beauty' || lower === 'не косметика' || lower === 'другое') return 'not_beauty';
     if (lower === 'hair' || lower === 'волос' || lower === 'для волос') return 'hair';
     if (lower === 'skin' || lower === 'кожа' || lower === 'для кожи' || lower === 'лицо' || lower === 'face') return 'skin';
     if (lower === 'mixed' || lower === 'смешанный') return 'mixed';
@@ -202,8 +203,15 @@ export const quickIdentifyProduct = internalAction({
                 {
                   type: 'text',
                   text: [
-                    'Определи бренд и название косметического продукта или парфюма на изображении.',
-                    'Верни ТОЛЬКО JSON: {"brand": "...", "name": "...", "confidence": 0-1, "category": "skin"|"hair"|"mixed"|"perfume"|"unknown"}',
+                    'Определи, является ли объект на изображении косметическим продуктом или парфюмом.',
+                    '',
+                    'ВАЖНО: Если на изображении НЕ косметика и НЕ парфюм (например: еда, мебель, техника, одежда, животные, люди, природа, предметы быта, украшения, канцелярия и т.д.), верни category: "not_beauty".',
+                    '',
+                    'Косметика включает: кремы, сыворотки, маски, тоники, очищающие средства, шампуни, кондиционеры, средства для укладки, декоративную косметику (помады, тени, тушь, румяна и т.д.), средства для ухода за кожей и волосами.',
+                    'Парфюм включает: духи, туалетную воду, одеколон, парфюмерную воду.',
+                    '',
+                    'Верни ТОЛЬКО JSON: {"brand": "...", "name": "...", "confidence": 0-1, "category": "skin"|"hair"|"mixed"|"perfume"|"not_beauty"}',
+                    'Если это не бьюти-продукт, поставь confidence: 0 и category: "not_beauty".',
                     'Без markdown, без объяснений, только JSON.',
                   ].join(' '),
                 },
@@ -367,7 +375,10 @@ export const identifyProduct = internalAction({
                   text: [
                     'Ты — эксперт косметики и парфюмерии.',
                     'Определи бренд, название и категорию продукта.',
-                    'Категории: "skin" (для лица/кожи), "hair" (для волос), "mixed" (универсальный), "perfume" (парфюм/духи/туалетная вода/одеколон), "unknown" (не определена).',
+                    '',
+                    'ВАЖНО: Если на изображении НЕ косметика и НЕ парфюм (еда, мебель, техника, одежда, украшения, канцелярия и т.д.), верни category: "not_beauty" с confidence: 0.',
+                    '',
+                    'Категории: "skin" (для лица/кожи), "hair" (для волос), "mixed" (универсальный), "perfume" (парфюм/духи/туалетная вода/одеколон), "not_beauty" (не косметика/парфюм), "unknown" (косметика, но категория не определена).',
                     '',
                     '=== ЕСЛИ ЭТО ПАРФЮМ (категория "perfume") ===',
                     'Верни JSON в формате: {brand, name, confidence, category: "perfume", perfumeData: {...}}',
@@ -542,6 +553,13 @@ export const identifyProduct = internalAction({
       const result = parsed as Record<string, unknown>;
       const category = 'category' in result ? result.category : undefined;
       result.category = normalizeCategory(category);
+
+      // Проверка на не-бьюти продукт (защита на случай если quick identification пропустил)
+      if (result.category === 'not_beauty') {
+        return {
+          error: 'На изображении не обнаружен косметический продукт или парфюм. Пожалуйста, сфотографируйте косметику, средство для ухода или парфюм.',
+        };
+      }
 
       // Если это парфюм, обрабатываем отдельно
       if (result.category === 'perfume') {

@@ -158,6 +158,17 @@ export const analyzeProduct = action({
         category: ProductCategory;
       };
 
+      // ========================================
+      // NOT BEAUTY CHECK: Reject non-beauty products early
+      // This saves tokens by not running full analysis
+      // ========================================
+      if (category === 'not_beauty') {
+        console.log('Not a beauty product detected, rejecting early');
+        return {
+          error: 'На изображении не обнаружен косметический продукт или парфюм. Пожалуйста, сфотографируйте косметику, средство для ухода или парфюм.',
+        };
+      }
+
       if (confidence >= CONFIDENCE_THRESHOLD) {
         // Check if product exists in cache by brand + name
         const existingProduct = await ctx.runQuery(internal.products.findByBrandAndName, {
