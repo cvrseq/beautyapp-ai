@@ -1,13 +1,12 @@
 import { ChevronArrow } from '@/components/ChevronArrow';
 import { APPLE_TEXT_STYLES } from '@/constants/fonts';
+import { TranslationKey } from '@/constants/i18n';
 import { useHairType } from '@/hooks/useHairType';
 import { useSkinType } from '@/hooks/useSkinType';
 import { useAge } from '@/hooks/useAge';
 import { useLifestyle } from '@/hooks/useLifestyle';
 import { useLocation } from '@/hooks/useLocation';
-import { HAIR_TYPE_LABELS } from '@/types/hairType';
-import { SKIN_TYPE_LABELS } from '@/types/skinType';
-import { AGE_RANGE_LABELS, LIFESTYLE_LABELS, LOCATION_LABELS } from '@/types/userProfile';
+import { useLocale } from '@/hooks/useLocale';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo } from 'react';
@@ -22,9 +21,9 @@ export default function ProfileScreen() {
   const { lifestyle, isLoading: isLoadingLifestyle, loadLifestyle } = useLifestyle();
   const { location, isLoading: isLoadingLocation, loadLocation } = useLocation();
   const { theme } = useTheme();
+  const { t } = useLocale();
   const styles = useMemo(() => createThemedStyles(theme), [theme]);
 
-  // Обновляем данные при возврате на экран
   useFocusEffect(
     useCallback(() => {
       loadSkinType();
@@ -35,9 +34,16 @@ export default function ProfileScreen() {
     }, [loadSkinType, loadHairType, loadAge, loadLifestyle, loadLocation])
   );
 
+  const summaryParts = [
+    skinType && `${t('home.skinType')}: ${t(('skin.' + skinType) as TranslationKey).toLowerCase()}`,
+    hairType && `${t('home.hairType')}: ${t(('hair.' + hairType) as TranslationKey).toLowerCase()}`,
+    age && `${t('home.age')}: ${t(('age.' + age) as TranslationKey)}`,
+    lifestyle && `${t('home.lifestyle')}: ${t(('lifestyle.' + lifestyle) as TranslationKey).toLowerCase()}`,
+    location && `${t('home.location')}: ${t(('location.' + location) as TranslationKey)}`,
+  ].filter(Boolean).join('. ');
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Navigation Bar */}
       <View style={styles.navBar}>
         <TouchableOpacity
           style={styles.backButton}
@@ -56,7 +62,6 @@ export default function ProfileScreen() {
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Header */}
         <View style={styles.headerSection}>
           <View style={styles.headerCard}>
             <View style={styles.headerIcon}>
@@ -66,14 +71,16 @@ export default function ProfileScreen() {
               Beauty Profile
             </Text>
             <Text style={[APPLE_TEXT_STYLES.callout, styles.headerSubtitle]}>
-              Персонализированные настройки для лучших рекомендаций
+              {t('profile.subtitle')}
             </Text>
           </View>
         </View>
 
         {/* Skin Type Section */}
         <View style={styles.section}>
-          <Text style={[APPLE_TEXT_STYLES.caption1, styles.sectionHeader]}>ТИП КОЖИ</Text>
+          <Text style={[APPLE_TEXT_STYLES.caption1, styles.sectionHeader]}>
+            {t('profile.skinHeader')}
+          </Text>
           <View style={styles.sectionContent}>
             <TouchableOpacity
               style={[styles.listItem, styles.listItemLast]}
@@ -85,21 +92,15 @@ export default function ProfileScreen() {
               </View>
               <View style={styles.listItemContent}>
                 <Text style={[APPLE_TEXT_STYLES.body, styles.listItemTitle]}>
-                  Тип кожи
+                  {t('home.skinType')}
                 </Text>
-                {isLoadingSkin ? (
-                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
-                    Загрузка...
-                  </Text>
-                ) : skinType ? (
-                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
-                    {SKIN_TYPE_LABELS[skinType]}
-                  </Text>
-                ) : (
-                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
-                    Не настроено
-                  </Text>
-                )}
+                <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
+                  {isLoadingSkin
+                    ? t('loading')
+                    : skinType
+                      ? t(('skin.' + skinType) as TranslationKey)
+                      : t('notSet')}
+                </Text>
               </View>
               <ChevronArrow color={theme.textTertiary} size={20} direction="right" />
             </TouchableOpacity>
@@ -108,7 +109,9 @@ export default function ProfileScreen() {
 
         {/* Hair Type Section */}
         <View style={styles.section}>
-          <Text style={[APPLE_TEXT_STYLES.caption1, styles.sectionHeader]}>ТИП ВОЛОС</Text>
+          <Text style={[APPLE_TEXT_STYLES.caption1, styles.sectionHeader]}>
+            {t('profile.hairHeader')}
+          </Text>
           <View style={styles.sectionContent}>
             <TouchableOpacity
               style={[styles.listItem, styles.listItemLast]}
@@ -120,21 +123,15 @@ export default function ProfileScreen() {
               </View>
               <View style={styles.listItemContent}>
                 <Text style={[APPLE_TEXT_STYLES.body, styles.listItemTitle]}>
-                  Тип волос
+                  {t('home.hairType')}
                 </Text>
-                {isLoadingHair ? (
-                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
-                    Загрузка...
-                  </Text>
-                ) : hairType ? (
-                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
-                    {HAIR_TYPE_LABELS[hairType]}
-                  </Text>
-                ) : (
-                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
-                    Не настроено
-                  </Text>
-                )}
+                <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
+                  {isLoadingHair
+                    ? t('loading')
+                    : hairType
+                      ? t(('hair.' + hairType) as TranslationKey)
+                      : t('notSet')}
+                </Text>
               </View>
               <ChevronArrow color={theme.textTertiary} size={20} direction="right" />
             </TouchableOpacity>
@@ -143,7 +140,9 @@ export default function ProfileScreen() {
 
         {/* Additional Info Section */}
         <View style={styles.section}>
-          <Text style={[APPLE_TEXT_STYLES.caption1, styles.sectionHeader]}>ДОПОЛНИТЕЛЬНО</Text>
+          <Text style={[APPLE_TEXT_STYLES.caption1, styles.sectionHeader]}>
+            {t('profile.extraHeader')}
+          </Text>
           <View style={styles.sectionContent}>
             <TouchableOpacity
               style={styles.listItem}
@@ -155,21 +154,15 @@ export default function ProfileScreen() {
               </View>
               <View style={styles.listItemContent}>
                 <Text style={[APPLE_TEXT_STYLES.body, styles.listItemTitle]}>
-                  Возраст
+                  {t('home.age')}
                 </Text>
-                {isLoadingAge ? (
-                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
-                    Загрузка...
-                  </Text>
-                ) : age ? (
-                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
-                    {AGE_RANGE_LABELS[age]}
-                  </Text>
-                ) : (
-                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
-                    Не указан
-                  </Text>
-                )}
+                <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
+                  {isLoadingAge
+                    ? t('loading')
+                    : age
+                      ? t(('age.' + age) as TranslationKey)
+                      : t('notSpecifiedM')}
+                </Text>
               </View>
               <ChevronArrow color={theme.textTertiary} size={20} direction="right" />
             </TouchableOpacity>
@@ -184,21 +177,15 @@ export default function ProfileScreen() {
               </View>
               <View style={styles.listItemContent}>
                 <Text style={[APPLE_TEXT_STYLES.body, styles.listItemTitle]}>
-                  Образ жизни
+                  {t('home.lifestyle')}
                 </Text>
-                {isLoadingLifestyle ? (
-                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
-                    Загрузка...
-                  </Text>
-                ) : lifestyle ? (
-                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
-                    {LIFESTYLE_LABELS[lifestyle]}
-                  </Text>
-                ) : (
-                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
-                    Не указан
-                  </Text>
-                )}
+                <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
+                  {isLoadingLifestyle
+                    ? t('loading')
+                    : lifestyle
+                      ? t(('lifestyle.' + lifestyle) as TranslationKey)
+                      : t('notSpecifiedM')}
+                </Text>
               </View>
               <ChevronArrow color={theme.textTertiary} size={20} direction="right" />
             </TouchableOpacity>
@@ -213,21 +200,15 @@ export default function ProfileScreen() {
               </View>
               <View style={styles.listItemContent}>
                 <Text style={[APPLE_TEXT_STYLES.body, styles.listItemTitle]}>
-                  Локация
+                  {t('home.location')}
                 </Text>
-                {isLoadingLocation ? (
-                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
-                    Загрузка...
-                  </Text>
-                ) : location ? (
-                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
-                    {LOCATION_LABELS[location]}
-                  </Text>
-                ) : (
-                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
-                    Не указана
-                  </Text>
-                )}
+                <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
+                  {isLoadingLocation
+                    ? t('loading')
+                    : location
+                      ? t(('location.' + location) as TranslationKey)
+                      : t('notSpecifiedF')}
+                </Text>
               </View>
               <ChevronArrow color={theme.textTertiary} size={20} direction="right" />
             </TouchableOpacity>
@@ -241,20 +222,14 @@ export default function ProfileScreen() {
               <View style={styles.summaryHeader}>
                 <Ionicons name="checkmark-circle" size={24} color={theme.success} />
                 <Text style={[APPLE_TEXT_STYLES.headline, styles.summaryTitle]}>
-                  Профиль настроен
+                  {t('profile.configured')}
                 </Text>
               </View>
               <Text style={[APPLE_TEXT_STYLES.body, styles.summaryText]}>
-                {[
-                  skinType && `Тип кожи: ${SKIN_TYPE_LABELS[skinType].toLowerCase()}`,
-                  hairType && `Тип волос: ${HAIR_TYPE_LABELS[hairType].toLowerCase()}`,
-                  age && `Возраст: ${AGE_RANGE_LABELS[age]}`,
-                  lifestyle && `Образ жизни: ${LIFESTYLE_LABELS[lifestyle].toLowerCase()}`,
-                  location && `Локация: ${LOCATION_LABELS[location]}`,
-                ].filter(Boolean).join('. ')}.
+                {summaryParts}.
               </Text>
               <Text style={[APPLE_TEXT_STYLES.caption1, styles.summarySubtext]}>
-                Эти данные используются для персонализированных рекомендаций при анализе продуктов.
+                {t('profile.configuredSub')}
               </Text>
             </View>
           </View>
@@ -267,10 +242,10 @@ export default function ProfileScreen() {
             <View style={styles.emptyCard}>
               <Ionicons name="person-circle-outline" size={48} color={theme.textSecondary} />
               <Text style={[APPLE_TEXT_STYLES.headline, styles.emptyTitle]}>
-                Профиль не настроен
+                {t('profile.emptyTitle')}
               </Text>
               <Text style={[APPLE_TEXT_STYLES.body, styles.emptyText]}>
-                Настройте тип кожи и волос для получения персонализированных рекомендаций
+                {t('profile.emptyText')}
               </Text>
             </View>
           </View>

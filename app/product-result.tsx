@@ -2,14 +2,14 @@ import { ChevronArrow } from '@/components/ChevronArrow';
 import { CommentSection } from '@/components/comments/CommentSection';
 import { PerfumeResultView } from '@/components/perfume/PerfumeResultView';
 import { APPLE_TEXT_STYLES } from '@/constants/fonts';
+import { TranslationKey } from '@/constants/i18n';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
 import { useHairType } from '@/hooks/useHairType';
+import { useLocale } from '@/hooks/useLocale';
 import { useSkinType } from '@/hooks/useSkinType';
 import { useTheme, Theme } from '@/hooks/useTheme';
-import { HAIR_TYPE_LABELS } from '@/types/hairType';
 import { CosmeticAnalysis, Ingredient, IngredientStatus } from '@/types/products';
-import { SKIN_TYPE_LABELS } from '@/types/skinType';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from 'convex/react';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -32,6 +32,7 @@ export default function ProductResultScreen() {
   const { skinType } = useSkinType();
   const { hairType } = useHairType();
   const { theme } = useTheme();
+  const { t } = useLocale();
   const styles = useMemo(() => createThemedStyles(theme), [theme]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
@@ -66,17 +67,17 @@ export default function ProductResultScreen() {
             <Ionicons name="alert-circle-outline" size={40} color={theme.textSecondary} />
           </View>
           <Text style={[APPLE_TEXT_STYLES.title2, styles.errorTitle]} numberOfLines={2}>
-            Что-то пошло не так
+            {t('result.errTitle')}
           </Text>
           <Text style={[APPLE_TEXT_STYLES.body, styles.errorText]} numberOfLines={3}>
-            Не удалось определить продукт. Попробуйте отсканировать ещё раз.
+            {t('result.errText')}
           </Text>
           <TouchableOpacity
             style={styles.errorButton}
             onPress={() => router.replace('/(tabs)/camera')}
           >
             <Text style={[APPLE_TEXT_STYLES.headline, styles.errorButtonText]}>
-              Вернуться к сканеру
+              {t('result.errBtn')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -91,7 +92,7 @@ export default function ProductResultScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.text} />
           <Text style={[APPLE_TEXT_STYLES.body, styles.loadingText]}>
-            ИИ анализирует состав...
+            {t('result.loading')}
           </Text>
         </View>
       </SafeAreaView>
@@ -288,35 +289,31 @@ export default function ProductResultScreen() {
     score: number
   ): string => {
     const typeLabel = type === 'skin'
-      ? SKIN_TYPE_LABELS[skinType || 'normal']
-      : HAIR_TYPE_LABELS[hairType || 'normal'];
+      ? t(('skin.' + (skinType || 'normal')) as TranslationKey)
+      : t(('hair.' + (hairType || 'normal')) as TranslationKey);
 
     if (status === 'good' && score >= 70) {
       if (type === 'skin') {
-        const skinSpecific = skinType === 'dry'
-          ? 'Продукт содержит увлажняющие компоненты, которые помогают удерживать влагу и предотвращают обезвоживание. Идеально подходит для сухой кожи, обеспечивая необходимую гидратацию и защиту.'
-          : skinType === 'oily'
-          ? 'Продукт помогает контролировать выработку себума и предотвращает появление излишней жирности. Содержит компоненты, которые матируют кожу и поддерживают оптимальный баланс.'
-          : skinType === 'sensitive'
-          ? 'Продукт содержит мягкие, не раздражающие компоненты, безопасные для чувствительной кожи. Не вызывает аллергических реакций и подходит для ежедневного использования.'
-          : skinType === 'combination'
-          ? 'Продукт балансирует состояние разных зон лица, увлажняя сухие участки и матируя жирные. Идеально подходит для комбинированной кожи.'
-          : 'Продукт поддерживает естественный баланс нормальной кожи и не вызывает побочных эффектов. Подходит для регулярного использования.';
-        return `Продукт отлично подходит для ${typeLabel.toLowerCase()}. ${skinSpecific} Компоненты состава идеально сочетаются с вашим типом кожи и обеспечивают максимальную пользу.`;
+        const skinSpecific = skinType === 'dry' ? t('compat.goodSkin.dry')
+          : skinType === 'oily' ? t('compat.goodSkin.oily')
+          : skinType === 'sensitive' ? t('compat.goodSkin.sensitive')
+          : skinType === 'combination' ? t('compat.goodSkin.combination')
+          : t('compat.goodSkin.normal');
+        return `${t('compat.goodSkin.prefix')} ${typeLabel.toLowerCase()}. ${skinSpecific} ${t('compat.goodSkin.suffix')}`;
       } else {
-        return `Продукт отлично подходит для ${typeLabel.toLowerCase()} волос. Компоненты состава улучшают состояние волос, укрепляют их структуру и придают здоровый блеск. Регулярное использование обеспечит максимальный результат.`;
+        return `${t('compat.goodHair.prefix')} ${typeLabel.toLowerCase()} ${t('result.hairSuffix')}. ${t('compat.goodHair.suffix')}`;
       }
     } else if (status === 'bad' || score < 40) {
       if (type === 'skin') {
-        return `Продукт не рекомендуется для ${typeLabel.toLowerCase()}. Состав может вызывать раздражение, сухость или другие нежелательные реакции. Некоторые компоненты могут усугубить существующие проблемы кожи. Рекомендуется избегать использования или применять с крайней осторожностью после консультации со специалистом.`;
+        return `${t('compat.badSkin.prefix')} ${typeLabel.toLowerCase()}. ${t('compat.badSkin.suffix')}`;
       } else {
-        return `Продукт не рекомендуется для ${typeLabel.toLowerCase()} волос. Состав может негативно влиять на структуру волос, вызывать сухость, ломкость или другие проблемы. Рекомендуется избегать использования.`;
+        return `${t('compat.badHair.prefix')} ${typeLabel.toLowerCase()} ${t('result.hairSuffix')}. ${t('compat.badHair.suffix')}`;
       }
     } else {
       if (type === 'skin') {
-        return `Продукт нейтрально влияет на ${typeLabel.toLowerCase()}. Некоторые компоненты могут быть полезны, но есть ингредиенты, которые требуют осторожности. Рекомендуется провести тест на небольшом участке кожи перед полноценным использованием.`;
+        return `${t('compat.neutralSkin.prefix')} ${typeLabel.toLowerCase()}. ${t('compat.neutralSkin.suffix')}`;
       } else {
-        return `Продукт нейтрально влияет на ${typeLabel.toLowerCase()} волосы. Состав может иметь как положительные, так и отрицательные стороны. Рекомендуется использовать умеренно и следить за реакцией волос.`;
+        return `${t('compat.neutralHair.prefix')} ${typeLabel.toLowerCase()} ${t('result.hairSuffix')}. ${t('compat.neutralHair.suffix')}`;
       }
     }
   };
@@ -328,21 +325,21 @@ export default function ProductResultScreen() {
         iconColor: theme.error,
         iconName: 'alert-circle' as keyof typeof Ionicons.glyphMap,
         bgColor: theme.error,
-        label: 'Не рекомендуется',
+        label: t('result.compatBad'),
       };
     } else if (status === 'good' || score >= 70) {
       return {
         iconColor: theme.success,
         iconName: 'checkmark-circle' as keyof typeof Ionicons.glyphMap,
         bgColor: theme.success,
-        label: 'Отлично подходит',
+        label: t('result.compatGood'),
       };
     } else {
       return {
         iconColor: theme.warning,
         iconName: 'help-circle' as keyof typeof Ionicons.glyphMap,
         bgColor: theme.warning,
-        label: 'Нейтрально',
+        label: t('result.compatNeutral'),
       };
     }
   };
@@ -390,7 +387,7 @@ export default function ProductResultScreen() {
               {product.name}
             </Text>
             <Text style={[APPLE_TEXT_STYLES.callout, styles.headerDescription]}>
-              Персонализированный анализ состава косметики для вашего типа кожи и волос. Оценка совместимости и детальная информация об ингредиентах.
+              {t('result.headerDesc')}
             </Text>
             <TouchableOpacity
               style={styles.learnMoreButton}
@@ -398,7 +395,7 @@ export default function ProductResultScreen() {
               onPress={() => setIsExpanded(!isExpanded)}
             >
               <Text style={[APPLE_TEXT_STYLES.callout, styles.learnMoreText]}>
-                {isExpanded ? 'Скрыть' : 'Читать ещё...'}
+                {isExpanded ? t('result.collapse') : t('result.readMore')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -412,7 +409,7 @@ export default function ProductResultScreen() {
               <View style={styles.expandedHeader}>
                 <Ionicons name="person-circle-outline" size={24} color={theme.primary} />
                 <Text style={[APPLE_TEXT_STYLES.title3, styles.expandedTitle]}>
-                  Персонализированный анализ
+                  {t('result.personalAnalysis')}
                 </Text>
               </View>
 
@@ -420,21 +417,21 @@ export default function ProductResultScreen() {
               {skinType && (
                 <View style={styles.analysisBlock}>
                   <Text style={[APPLE_TEXT_STYLES.headline, styles.analysisBlockTitle]}>
-                    Для {SKIN_TYPE_LABELS[skinType].toLowerCase()} кожи
+                    {t('result.forSkinPrefix')} {t(('skin.' + skinType) as TranslationKey).toLowerCase()} {t('result.skinSuffix')}
                   </Text>
                   {skinCompatibility && skinCompatibility[skinType] && (
                     <View style={styles.compatibilityDetails}>
                       <View style={styles.compatibilityRow}>
                         <Text style={[APPLE_TEXT_STYLES.body, styles.compatibilityLabel]}>
-                          Совместимость:
+                          {t('result.compatLabel')}
                         </Text>
                         <View style={styles.compatibilityValue}>
                           <Text style={[APPLE_TEXT_STYLES.body, {
                             color: skinCompatibility[skinType].status === 'good' ? theme.success :
                                    skinCompatibility[skinType].status === 'bad' ? theme.error : theme.warning
                           }]}>
-                            {skinCompatibility[skinType].status === 'good' ? 'Отлично подходит' :
-                             skinCompatibility[skinType].status === 'bad' ? 'Не рекомендуется' : 'Нейтрально'}
+                            {skinCompatibility[skinType].status === 'good' ? t('result.compatGood') :
+                             skinCompatibility[skinType].status === 'bad' ? t('result.compatBad') : t('result.compatNeutral')}
                           </Text>
                           <Text style={[APPLE_TEXT_STYLES.caption1, styles.scoreText]}>
                             {typeof skinCompatibility[skinType].score === 'number' ? skinCompatibility[skinType].score : 0}%
@@ -448,7 +445,7 @@ export default function ProductResultScreen() {
                   {analysis.ingredients.length > 0 && (
                     <View style={styles.ingredientsForType}>
                       <Text style={[APPLE_TEXT_STYLES.subhead, styles.ingredientsForTypeTitle]}>
-                        Подходящие ингредиенты:
+                        {t('result.suitableIngr')}
                       </Text>
                       <View style={styles.ingredientsTagsContainer}>
                         {analysis.ingredients
@@ -472,21 +469,21 @@ export default function ProductResultScreen() {
               {hairType && (product.category === 'hair' || product.category === 'mixed') && (
                 <View style={styles.analysisBlock}>
                   <Text style={[APPLE_TEXT_STYLES.headline, styles.analysisBlockTitle]}>
-                    Для {HAIR_TYPE_LABELS[hairType].toLowerCase()} волос
+                    {t('result.forSkinPrefix')} {t(('hair.' + hairType) as TranslationKey).toLowerCase()} {t('result.hairSuffix')}
                   </Text>
                   {hairCompatibility && hairCompatibility[hairType] && (
                     <View style={styles.compatibilityDetails}>
                       <View style={styles.compatibilityRow}>
                         <Text style={[APPLE_TEXT_STYLES.body, styles.compatibilityLabel]}>
-                          Совместимость:
+                          {t('result.compatLabel')}
                         </Text>
                         <View style={styles.compatibilityValue}>
                           <Text style={[APPLE_TEXT_STYLES.body, {
                             color: hairCompatibility[hairType].status === 'good' ? theme.success :
                                    hairCompatibility[hairType].status === 'bad' ? theme.error : theme.warning
                           }]}>
-                            {hairCompatibility[hairType].status === 'good' ? 'Отлично подходит' :
-                             hairCompatibility[hairType].status === 'bad' ? 'Не рекомендуется' : 'Нейтрально'}
+                            {hairCompatibility[hairType].status === 'good' ? t('result.compatGood') :
+                             hairCompatibility[hairType].status === 'bad' ? t('result.compatBad') : t('result.compatNeutral')}
                           </Text>
                           <Text style={[APPLE_TEXT_STYLES.caption1, styles.scoreText]}>
                             {typeof hairCompatibility[hairType].score === 'number' ? hairCompatibility[hairType].score : 0}%
@@ -505,7 +502,7 @@ export default function ProductResultScreen() {
                     <View style={styles.prosConsHeader}>
                       <Ionicons name="checkmark-circle" size={20} color={theme.success} />
                       <Text style={[APPLE_TEXT_STYLES.headline, styles.prosConsTitle]}>
-                        Преимущества
+                        {t('result.pros')}
                       </Text>
                     </View>
                     {analysis.pros.map((pro, idx) => (
@@ -524,7 +521,7 @@ export default function ProductResultScreen() {
                     <View style={styles.prosConsHeader}>
                       <Ionicons name="alert-circle" size={20} color={theme.warning} />
                       <Text style={[APPLE_TEXT_STYLES.headline, styles.prosConsTitle]}>
-                        Недостатки
+                        {t('result.cons')}
                       </Text>
                     </View>
                     {analysis.cons.map((con, idx) => (
@@ -550,15 +547,15 @@ export default function ProductResultScreen() {
                            analysis.hazards === 'medium' ? theme.warning : theme.error}
                   />
                   <Text style={[APPLE_TEXT_STYLES.headline, styles.safetyTitle]}>
-                    Уровень безопасности
+                    {t('result.safetyTitle')}
                   </Text>
                 </View>
                 <Text style={[APPLE_TEXT_STYLES.body, styles.safetyText]}>
                   {analysis.hazards === 'low'
-                    ? 'Продукт имеет низкий уровень риска и безопасен для использования.'
+                    ? t('result.safetyLow')
                     : analysis.hazards === 'medium'
-                    ? 'Продукт имеет средний уровень риска. Рекомендуется провести тест на аллергию перед использованием.'
-                    : 'Продукт содержит компоненты с высоким уровнем риска. Используйте с осторожностью.'}
+                    ? t('result.safetyMedium')
+                    : t('result.safetyHigh')}
                 </Text>
               </View>
 
@@ -568,29 +565,29 @@ export default function ProductResultScreen() {
                   <View style={styles.detailedIngredientsHeader}>
                     <Ionicons name="flask-outline" size={20} color={theme.primary} />
                     <Text style={[APPLE_TEXT_STYLES.headline, styles.detailedIngredientsTitle]}>
-                      Детальная информация об ингредиентах
+                      {t('result.ingrDetailed')}
                     </Text>
                   </View>
                   <Text style={[APPLE_TEXT_STYLES.caption1, styles.detailedIngredientsSubtitle]}>
-                    Всего компонентов: {analysis.ingredients.length}
+                    {t('result.ingrTotal')} {analysis.ingredients.length}
                   </Text>
                   <View style={styles.ingredientsStats}>
                     <View style={styles.statItem}>
                       <Ionicons name="checkmark-circle" size={16} color={theme.success} />
                       <Text style={[APPLE_TEXT_STYLES.caption1, styles.statText]}>
-                        Безопасные: {analysis.ingredients.filter(i => i.status === 'green').length}
+                        {t('result.ingrSafe')} {analysis.ingredients.filter(i => i.status === 'green').length}
                       </Text>
                     </View>
                     <View style={styles.statItem}>
                       <Ionicons name="warning" size={16} color={theme.warning} />
                       <Text style={[APPLE_TEXT_STYLES.caption1, styles.statText]}>
-                        Внимание: {analysis.ingredients.filter(i => i.status === 'yellow').length}
+                        {t('result.ingrCaution')} {analysis.ingredients.filter(i => i.status === 'yellow').length}
                       </Text>
                     </View>
                     <View style={styles.statItem}>
                       <Ionicons name="alert-circle" size={16} color={theme.error} />
                       <Text style={[APPLE_TEXT_STYLES.caption1, styles.statText]}>
-                        Риск: {analysis.ingredients.filter(i => i.status === 'red').length}
+                        {t('result.ingrRisk')} {analysis.ingredients.filter(i => i.status === 'red').length}
                       </Text>
                     </View>
                   </View>
@@ -611,7 +608,7 @@ export default function ProductResultScreen() {
 
           return (
             <View style={styles.section}>
-              <Text style={[APPLE_TEXT_STYLES.caption1, styles.sectionHeader]}>СОВМЕСТИМОСТЬ</Text>
+              <Text style={[APPLE_TEXT_STYLES.caption1, styles.sectionHeader]}>{t('result.sectionCompat')}</Text>
               <View style={styles.sectionContent}>
                 <TouchableOpacity
                   style={[styles.listItem, styles.listItemLast]}
@@ -632,7 +629,7 @@ export default function ProductResultScreen() {
                       {style.label}
                     </Text>
                     <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
-                      Для {SKIN_TYPE_LABELS[skinType].toLowerCase()} кожи - {score}%
+                      {t('result.forSkinPrefix')} {t(('skin.' + skinType) as TranslationKey).toLowerCase()} {t('result.skinSuffix')} - {score}%
                     </Text>
                   </View>
                   <ChevronArrow color={theme.textTertiary} size={20} direction="right" />
@@ -653,7 +650,7 @@ export default function ProductResultScreen() {
 
           return (
             <View style={styles.section}>
-              <Text style={[APPLE_TEXT_STYLES.caption1, styles.sectionHeader]}>СОВМЕСТИМОСТЬ</Text>
+              <Text style={[APPLE_TEXT_STYLES.caption1, styles.sectionHeader]}>{t('result.sectionCompat')}</Text>
               <View style={styles.sectionContent}>
                 <TouchableOpacity
                   style={[styles.listItem, styles.listItemLast]}
@@ -674,7 +671,7 @@ export default function ProductResultScreen() {
                       {style.label}
                     </Text>
                     <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
-                      Для {HAIR_TYPE_LABELS[hairType].toLowerCase()} - {score}%
+                      {t('result.forSkinPrefix')} {t(('hair.' + hairType) as TranslationKey).toLowerCase()} {t('result.hairSuffix')} - {score}%
                     </Text>
                   </View>
                   <ChevronArrow color={theme.textTertiary} size={20} direction="right" />
@@ -687,7 +684,7 @@ export default function ProductResultScreen() {
         {/* Ingredients Section */}
         {analysis.ingredients.length > 0 && (
           <View style={styles.section}>
-            <Text style={[APPLE_TEXT_STYLES.caption1, styles.sectionHeader]}>ИНГРЕДИЕНТЫ</Text>
+            <Text style={[APPLE_TEXT_STYLES.caption1, styles.sectionHeader]}>{t('result.sectionIngr')}</Text>
             <View style={styles.sectionContent}>
               {analysis.ingredients.map((item: Ingredient, index: number) => {
                 const isLast = index === analysis.ingredients.length - 1;
@@ -776,8 +773,8 @@ export default function ProductResultScreen() {
                     <Text style={[APPLE_TEXT_STYLES.headline, {
                       color: getIconColor(selectedIngredient.status)
                     }]}>
-                      {selectedIngredient.status === 'green' ? 'Безопасен' :
-                       selectedIngredient.status === 'yellow' ? 'Требует внимания' : 'Риск'}
+                      {selectedIngredient.status === 'green' ? t('result.ingrStatusSafe') :
+                       selectedIngredient.status === 'yellow' ? t('result.ingrStatusCaution') : t('result.ingrStatusRisk')}
                     </Text>
                   </View>
                 </View>
@@ -786,7 +783,7 @@ export default function ProductResultScreen() {
                 {selectedIngredient.desc && (
                   <View style={styles.modalSection}>
                     <Text style={[APPLE_TEXT_STYLES.headline, styles.modalSectionTitle]}>
-                      Описание
+                      {t('result.ingrDesc')}
                     </Text>
                     <Text style={[APPLE_TEXT_STYLES.body, styles.modalSectionText]}>
                       {selectedIngredient.desc}
@@ -800,7 +797,7 @@ export default function ProductResultScreen() {
                     <View style={styles.modalSectionHeader}>
                       <Ionicons name="person" size={20} color={theme.primary} />
                       <Text style={[APPLE_TEXT_STYLES.headline, styles.modalSectionTitle]}>
-                        Для {SKIN_TYPE_LABELS[skinType].toLowerCase()} кожи
+                        {t('result.forSkinPrefix')} {t(('skin.' + skinType) as TranslationKey).toLowerCase()} {t('result.skinSuffix')}
                       </Text>
                     </View>
 
@@ -809,22 +806,21 @@ export default function ProductResultScreen() {
                       <View style={styles.modalBenefitHeader}>
                         <Ionicons name="checkmark-circle" size={20} color={theme.success} />
                         <Text style={[APPLE_TEXT_STYLES.subhead, styles.modalBenefitTitle]}>
-                          Польза
+                          {t('result.benefitTitle')}
                         </Text>
                       </View>
                       {selectedIngredient.status === 'green' ? (
                         <Text style={[APPLE_TEXT_STYLES.body, styles.modalBenefitText]}>
-                          Этот компонент хорошо подходит для {SKIN_TYPE_LABELS[skinType].toLowerCase()} кожи.
+                          {t('ingr.benefitGreenPrefix')} {t(('skin.' + skinType) as TranslationKey).toLowerCase()} {t('ingr.benefitGreenSuffix')}
                           {selectedIngredient.desc && ` ${selectedIngredient.desc}`}
                         </Text>
                       ) : selectedIngredient.status === 'yellow' ? (
                         <Text style={[APPLE_TEXT_STYLES.body, styles.modalBenefitText]}>
-                          Компонент может быть полезен для {SKIN_TYPE_LABELS[skinType].toLowerCase()} кожи,
-                          но требует осторожного использования. Рекомендуется провести тест на аллергию.
+                          {t('ingr.benefitYellowPrefix')} {t(('skin.' + skinType) as TranslationKey).toLowerCase()} {t('ingr.benefitYellowSuffix')}
                         </Text>
                       ) : (
                         <Text style={[APPLE_TEXT_STYLES.body, styles.modalBenefitText]}>
-                          Компонент может вызывать нежелательные реакции у {SKIN_TYPE_LABELS[skinType].toLowerCase()} кожи.
+                          {t('ingr.benefitRedPrefix')} {t(('skin.' + skinType) as TranslationKey).toLowerCase()} {t('ingr.benefitRedSuffix')}
                         </Text>
                       )}
                     </View>
@@ -835,19 +831,16 @@ export default function ProductResultScreen() {
                         <View style={styles.modalBenefitHeader}>
                           <Ionicons name="alert-circle" size={20} color={theme.warning} />
                           <Text style={[APPLE_TEXT_STYLES.subhead, styles.modalRiskTitle]}>
-                            Вред и предостережения
+                            {t('result.harmTitle')}
                           </Text>
                         </View>
                         {selectedIngredient.status === 'yellow' ? (
                           <Text style={[APPLE_TEXT_STYLES.body, styles.modalRiskText]}>
-                            Может вызывать раздражение или аллергические реакции у чувствительной кожи.
-                            При появлении покраснения, зуда или других неприятных ощущений прекратите использование.
+                            {t('ingr.riskYellow')}
                           </Text>
                         ) : (
                           <Text style={[APPLE_TEXT_STYLES.body, styles.modalRiskText]}>
-                            Высокий риск нежелательных реакций для {SKIN_TYPE_LABELS[skinType].toLowerCase()} кожи.
-                            Может вызывать раздражение, аллергию или другие побочные эффекты.
-                            Не рекомендуется для регулярного использования.
+                            {t('ingr.riskRedPrefix')} {t(('skin.' + skinType) as TranslationKey).toLowerCase()} {t('ingr.riskRedSuffix')}
                           </Text>
                         )}
                       </View>
@@ -856,41 +849,13 @@ export default function ProductResultScreen() {
                     {/* Specific recommendations by skin type */}
                     <View style={styles.modalRecommendationBlock}>
                       <Text style={[APPLE_TEXT_STYLES.subhead, styles.modalRecommendationTitle]}>
-                        Рекомендации
+                        {t('result.recTitle')}
                       </Text>
-                      {skinType === 'dry' && (
+                      {(skinType === 'dry' || skinType === 'oily' || skinType === 'sensitive' || skinType === 'combination' || skinType === 'normal') && (
                         <Text style={[APPLE_TEXT_STYLES.body, styles.modalRecommendationText]}>
                           {selectedIngredient.status === 'green'
-                            ? 'Отлично подходит для сухой кожи. Помогает удерживать влагу и предотвращает обезвоживание.'
-                            : 'Используйте с осторожностью. Сухая кожа более склонна к раздражению.'}
-                        </Text>
-                      )}
-                      {skinType === 'oily' && (
-                        <Text style={[APPLE_TEXT_STYLES.body, styles.modalRecommendationText]}>
-                          {selectedIngredient.status === 'green'
-                            ? 'Подходит для жирной кожи. Помогает контролировать выработку себума.'
-                            : 'Может усугубить проблемы с жирностью кожи. Используйте умеренно.'}
-                        </Text>
-                      )}
-                      {skinType === 'sensitive' && (
-                        <Text style={[APPLE_TEXT_STYLES.body, styles.modalRecommendationText]}>
-                          {selectedIngredient.status === 'green'
-                            ? 'Безопасен для чувствительной кожи. Не вызывает раздражения.'
-                            : 'Требует особой осторожности. Обязательно проведите тест на небольшом участке кожи.'}
-                        </Text>
-                      )}
-                      {skinType === 'combination' && (
-                        <Text style={[APPLE_TEXT_STYLES.body, styles.modalRecommendationText]}>
-                          {selectedIngredient.status === 'green'
-                            ? 'Подходит для комбинированной кожи. Балансирует состояние разных зон.'
-                            : 'Применяйте точечно на проблемных зонах, избегая чувствительных участков.'}
-                        </Text>
-                      )}
-                      {skinType === 'normal' && (
-                        <Text style={[APPLE_TEXT_STYLES.body, styles.modalRecommendationText]}>
-                          {selectedIngredient.status === 'green'
-                            ? 'Идеально подходит для нормальной кожи. Поддерживает естественный баланс.'
-                            : 'Используйте в умеренных количествах, следите за реакцией кожи.'}
+                            ? t(('ingr.rec.' + skinType + '.green') as TranslationKey)
+                            : t(('ingr.rec.' + skinType + '.other') as TranslationKey)}
                         </Text>
                       )}
                     </View>
@@ -903,15 +868,15 @@ export default function ProductResultScreen() {
                     <View style={styles.modalSectionHeader}>
                       <Ionicons name="cut" size={20} color={theme.primary} />
                       <Text style={[APPLE_TEXT_STYLES.headline, styles.modalSectionTitle]}>
-                        Для {HAIR_TYPE_LABELS[hairType].toLowerCase()} волос
+                        {t('result.forSkinPrefix')} {t(('hair.' + hairType) as TranslationKey).toLowerCase()} {t('result.hairSuffix')}
                       </Text>
                     </View>
                     <Text style={[APPLE_TEXT_STYLES.body, styles.modalSectionText]}>
                       {selectedIngredient.status === 'green'
-                        ? `Компонент благотворно влияет на ${HAIR_TYPE_LABELS[hairType].toLowerCase()} волосы, улучшая их состояние и внешний вид.`
+                        ? `${t('ingr.hairGreenPrefix')} ${t(('hair.' + hairType) as TranslationKey).toLowerCase()} ${t('ingr.hairGreenSuffix')}`
                         : selectedIngredient.status === 'yellow'
-                        ? `Компонент может быть полезен для ${HAIR_TYPE_LABELS[hairType].toLowerCase()} волос, но требует осторожного применения.`
-                        : `Компонент может негативно влиять на ${HAIR_TYPE_LABELS[hairType].toLowerCase()} волосы. Рекомендуется избегать или использовать минимально.`}
+                        ? `${t('ingr.hairYellowPrefix')} ${t(('hair.' + hairType) as TranslationKey).toLowerCase()} ${t('ingr.hairYellowSuffix')}`
+                        : `${t('ingr.hairRedPrefix')} ${t(('hair.' + hairType) as TranslationKey).toLowerCase()} ${t('ingr.hairRedSuffix')}`}
                     </Text>
                   </View>
                 )}
@@ -941,7 +906,7 @@ export default function ProductResultScreen() {
                   <Ionicons name="close" size={28} color={theme.text} />
                 </TouchableOpacity>
                 <Text style={[APPLE_TEXT_STYLES.title2, styles.modalTitle]}>
-                  Совместимость
+                  {t('result.modalCompat')}
                 </Text>
                 <View style={styles.modalHeaderSpacer} />
               </View>
@@ -950,8 +915,8 @@ export default function ProductResultScreen() {
                 {(() => {
                   const style = getCompatibilityStyle(compatibilityModal.status, compatibilityModal.score);
                   const typeLabel = compatibilityModal.type === 'skin'
-                    ? SKIN_TYPE_LABELS[skinType || 'normal']
-                    : HAIR_TYPE_LABELS[hairType || 'normal'];
+                    ? t(('skin.' + (skinType || 'normal')) as TranslationKey)
+                    : t(('hair.' + (hairType || 'normal')) as TranslationKey);
                   const description = getCompatibilityDescription(
                     compatibilityModal.type,
                     compatibilityModal.status,
@@ -972,7 +937,7 @@ export default function ProductResultScreen() {
                             {style.label}
                           </Text>
                           <Text style={[APPLE_TEXT_STYLES.subhead, { color: theme.textSecondary, marginTop: 4 }]}>
-                            Для {typeLabel.toLowerCase()} - {compatibilityModal.score}%
+                            {typeLabel.toLowerCase()} - {compatibilityModal.score}%
                           </Text>
                         </View>
                       </View>
@@ -980,7 +945,7 @@ export default function ProductResultScreen() {
                       {/* Full Description */}
                       <View style={styles.modalSection}>
                         <Text style={[APPLE_TEXT_STYLES.headline, styles.modalSectionTitle]}>
-                          Почему {compatibilityModal.status === 'good' ? 'подходит' : compatibilityModal.status === 'bad' ? 'не рекомендуется' : 'нейтрально'}?
+                          {compatibilityModal.status === 'good' ? t('result.whyGood') : compatibilityModal.status === 'bad' ? t('result.whyBad') : t('result.whyNeutral')}
                         </Text>
                         <Text style={[APPLE_TEXT_STYLES.body, styles.modalSectionText]}>
                           {description}
@@ -993,7 +958,7 @@ export default function ProductResultScreen() {
                           <View style={styles.modalSectionHeader}>
                             <Ionicons name="checkmark-circle" size={20} color={theme.success} />
                             <Text style={[APPLE_TEXT_STYLES.headline, styles.modalSectionTitle]}>
-                              Преимущества продукта
+                              {t('result.productBenefits')}
                             </Text>
                           </View>
                           {analysis.pros.slice(0, 3).map((pro, idx) => (
@@ -1014,7 +979,7 @@ export default function ProductResultScreen() {
                           <View style={styles.modalSectionHeader}>
                             <Ionicons name="alert-circle" size={20} color={theme.error} />
                             <Text style={[APPLE_TEXT_STYLES.headline, styles.modalSectionTitle]}>
-                              Риски и ограничения
+                              {t('result.risksLimits')}
                             </Text>
                           </View>
                           {analysis.cons.slice(0, 3).map((con, idx) => (

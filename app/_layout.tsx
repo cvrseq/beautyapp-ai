@@ -1,4 +1,5 @@
 import { AuthProvider } from '@/hooks/useAuth';
+import { LocaleProvider } from '@/hooks/useLocale';
 import { ThemeProvider } from '@/hooks/useTheme';
 import { ConvexProvider, ConvexReactClient } from 'convex/react';
 import { Stack } from 'expo-router';
@@ -13,6 +14,7 @@ export default function RootLayout() {
   return (
     <ConvexProvider client={convex}>
       <ThemeProvider>
+        <LocaleProvider>
         <AuthProvider>
           <Stack>
           {/* Index redirect */}
@@ -36,6 +38,7 @@ export default function RootLayout() {
           <Stack.Screen name="scan-history" options={{ headerShown: false }} />
           </Stack>
         </AuthProvider>
+        </LocaleProvider>
       </ThemeProvider>
     </ConvexProvider>
   );

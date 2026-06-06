@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { APPLE_TEXT_STYLES } from '@/constants/fonts';
 import { ChevronArrow } from '@/components/ChevronArrow';
 import { useAuth } from '@/hooks/useAuth';
+import { useLocale } from '@/hooks/useLocale';
 import { useTheme, Theme } from '@/hooks/useTheme';
 
 export default function RegisterScreen() {
@@ -29,31 +30,18 @@ export default function RegisterScreen() {
 
   const { register, completeOnboarding } = useAuth();
   const { theme } = useTheme();
+  const { t } = useLocale();
   const styles = useMemo(() => createThemedStyles(theme), [theme]);
 
   const validateForm = (): string | null => {
-    if (!displayName.trim()) {
-      return 'Введите ваше имя';
-    }
-    if (displayName.trim().length < 2) {
-      return 'Имя должно быть не менее 2 символов';
-    }
-    if (!email.trim()) {
-      return 'Введите email';
-    }
+    if (!displayName.trim()) return t('auth.register.errName');
+    if (displayName.trim().length < 2) return t('auth.register.errNameShort');
+    if (!email.trim()) return t('auth.register.errEmail');
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return 'Неверный формат email';
-    }
-    if (!password) {
-      return 'Введите пароль';
-    }
-    if (password.length < 6) {
-      return 'Пароль должен быть не менее 6 символов';
-    }
-    if (password !== confirmPassword) {
-      return 'Пароли не совпадают';
-    }
+    if (!emailRegex.test(email)) return t('auth.register.errEmailFmt');
+    if (!password) return t('auth.register.errPassword');
+    if (password.length < 6) return t('auth.register.errPasswordShort');
+    if (password !== confirmPassword) return t('auth.register.errPasswordMatch');
     return null;
   };
 
@@ -69,16 +57,14 @@ export default function RegisterScreen() {
 
     try {
       const result = await register(email.trim(), password, displayName.trim());
-
       if (!result.success) {
-        setError(result.error || 'Ошибка регистрации');
+        setError(result.error || t('auth.register.errFailed'));
         return;
       }
-
       await completeOnboarding();
       router.replace('/(tabs)');
     } catch (e) {
-      setError('Произошла ошибка. Попробуйте ещё раз.');
+      setError(t('errGeneric'));
     } finally {
       setIsSubmitting(false);
     }
@@ -90,7 +76,6 @@ export default function RegisterScreen() {
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        {/* Navigation Bar */}
         <View style={styles.navBar}>
           <TouchableOpacity
             style={styles.backButton}
@@ -99,7 +84,7 @@ export default function RegisterScreen() {
           >
             <ChevronArrow color={theme.primary} size={20} direction="left" />
             <Text style={[APPLE_TEXT_STYLES.body, styles.backButtonText]}>
-              Назад
+              {t('back')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -110,17 +95,15 @@ export default function RegisterScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Header */}
           <View style={styles.header}>
             <Text style={[APPLE_TEXT_STYLES.largeTitle, styles.title]}>
-              Регистрация
+              {t('auth.register.title')}
             </Text>
             <Text style={[APPLE_TEXT_STYLES.body, styles.subtitle]}>
-              Создайте аккаунт, чтобы читать и оставлять комментарии
+              {t('auth.register.subtitle')}
             </Text>
           </View>
 
-          {/* Error Message */}
           {error && (
             <View style={styles.errorContainer}>
               <Ionicons name="alert-circle" size={20} color={theme.error} />
@@ -130,17 +113,15 @@ export default function RegisterScreen() {
             </View>
           )}
 
-          {/* Form */}
           <View style={styles.form}>
-            {/* Display Name Field */}
             <View style={styles.inputGroup}>
               <Text style={[APPLE_TEXT_STYLES.subhead, styles.inputLabel]}>
-                Имя
+                {t('auth.register.nameLabel')}
               </Text>
               <View style={styles.inputContainer}>
                 <TextInput
                   style={[APPLE_TEXT_STYLES.body, styles.input]}
-                  placeholder="Как вас называть?"
+                  placeholder={t('auth.register.namePlaceholder')}
                   placeholderTextColor={theme.textTertiary}
                   value={displayName}
                   onChangeText={setDisplayName}
@@ -151,7 +132,6 @@ export default function RegisterScreen() {
               </View>
             </View>
 
-            {/* Email Field */}
             <View style={styles.inputGroup}>
               <Text style={[APPLE_TEXT_STYLES.subhead, styles.inputLabel]}>
                 Email
@@ -171,15 +151,14 @@ export default function RegisterScreen() {
               </View>
             </View>
 
-            {/* Password Field */}
             <View style={styles.inputGroup}>
               <Text style={[APPLE_TEXT_STYLES.subhead, styles.inputLabel]}>
-                Пароль
+                {t('auth.register.passwordLabel')}
               </Text>
               <View style={styles.inputContainer}>
                 <TextInput
                   style={[APPLE_TEXT_STYLES.body, styles.input, styles.passwordInput]}
-                  placeholder="Минимум 6 символов"
+                  placeholder={t('auth.register.passwordPlaceholder')}
                   placeholderTextColor={theme.textTertiary}
                   value={password}
                   onChangeText={setPassword}
@@ -201,15 +180,14 @@ export default function RegisterScreen() {
               </View>
             </View>
 
-            {/* Confirm Password Field */}
             <View style={styles.inputGroup}>
               <Text style={[APPLE_TEXT_STYLES.subhead, styles.inputLabel]}>
-                Подтвердите пароль
+                {t('auth.register.confirmLabel')}
               </Text>
               <View style={styles.inputContainer}>
                 <TextInput
                   style={[APPLE_TEXT_STYLES.body, styles.input]}
-                  placeholder="Повторите пароль"
+                  placeholder={t('auth.register.confirmPlaceholder')}
                   placeholderTextColor={theme.textTertiary}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
@@ -221,7 +199,6 @@ export default function RegisterScreen() {
             </View>
           </View>
 
-          {/* Submit Button */}
           <TouchableOpacity
             style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
             onPress={handleRegister}
@@ -232,12 +209,11 @@ export default function RegisterScreen() {
               <ActivityIndicator color={theme.textInverse} />
             ) : (
               <Text style={[APPLE_TEXT_STYLES.headline, styles.submitButtonText]}>
-                Создать аккаунт
+                {t('auth.register.submit')}
               </Text>
             )}
           </TouchableOpacity>
 
-          {/* Login Link */}
           <TouchableOpacity
             style={styles.loginLink}
             onPress={() => router.replace('/auth/login' as RelativePathString)}
@@ -245,8 +221,8 @@ export default function RegisterScreen() {
             disabled={isSubmitting}
           >
             <Text style={[APPLE_TEXT_STYLES.subhead, styles.loginLinkText]}>
-              Уже есть аккаунт?{' '}
-              <Text style={styles.loginLinkAccent}>Войти</Text>
+              {t('auth.register.hasAccount')}{' '}
+              <Text style={styles.loginLinkAccent}>{t('auth.register.toLogin')}</Text>
             </Text>
           </TouchableOpacity>
         </ScrollView>

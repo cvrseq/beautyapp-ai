@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { useSkinType } from '@/hooks/useSkinType';
 import { getSkinTypeOptions, SkinType } from '@/types/skinType';
+import { TranslationKey } from '@/constants/i18n';
+import { useLocale } from '@/hooks/useLocale';
 import { APPLE_TEXT_STYLES } from '@/constants/fonts';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronArrow } from '@/components/ChevronArrow';
@@ -22,6 +24,7 @@ export default function SkinTypeQuizScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const { skinType, saveSkinType, isLoading } = useSkinType();
   const { theme } = useTheme();
+  const { t } = useLocale();
   const styles = useMemo(() => createThemedStyles(theme), [theme]);
 
   useEffect(() => {
@@ -32,14 +35,10 @@ export default function SkinTypeQuizScreen() {
 
   const handleSelect = async (type: SkinType) => {
     if (isSaving) return;
-
     setSelectedType(type);
-
     try {
       setIsSaving(true);
       await saveSkinType(type);
-
-      // Возвращаемся назад через небольшую задержку для лучшего UX
       setTimeout(() => {
         if (router.canGoBack()) {
           router.back();
@@ -48,8 +47,7 @@ export default function SkinTypeQuizScreen() {
         }
       }, 300);
     } catch (error) {
-      console.error('Ошибка сохранения типа кожи:', error);
-      alert('Не удалось сохранить тип кожи. Попробуйте ещё раз.');
+      console.error('Failed to save skin type:', error);
     } finally {
       setIsSaving(false);
     }
@@ -57,7 +55,6 @@ export default function SkinTypeQuizScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Navigation Bar */}
       <View style={styles.navBar}>
         <TouchableOpacity
           style={styles.backButton}
@@ -77,16 +74,13 @@ export default function SkinTypeQuizScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Header */}
       <View style={styles.header}>
         <Text style={[APPLE_TEXT_STYLES.largeTitle, styles.title]}>
-          Тип кожи
+          {t('quiz.skin.title')}
         </Text>
       </View>
 
-      {/* Content */}
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Skin Types Section */}
         <View style={styles.section}>
           {SKIN_TYPES.map((type, index) => {
             const isSelected = selectedType === type.id;
@@ -102,7 +96,10 @@ export default function SkinTypeQuizScreen() {
               >
                 <View style={styles.listItemContent}>
                   <Text style={[APPLE_TEXT_STYLES.body, styles.listItemTitle]}>
-                    {type.label}
+                    {t(('skin.' + type.id) as TranslationKey)}
+                  </Text>
+                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
+                    {t(('skin.desc.' + type.id) as TranslationKey)}
                   </Text>
                 </View>
                 {isSelected && (
@@ -113,10 +110,9 @@ export default function SkinTypeQuizScreen() {
           })}
         </View>
 
-        {/* Description Section */}
         <View style={styles.descriptionSection}>
           <Text style={[APPLE_TEXT_STYLES.subhead, styles.descriptionText]}>
-            Выберите тип кожи, чтобы мы могли подобрать для вас идеальную косметику и предупредить о неподходящих продуктах.
+            {t('quiz.skin.desc')}
           </Text>
         </View>
       </ScrollView>
@@ -179,9 +175,14 @@ const createThemedStyles = (theme: Theme) => StyleSheet.create({
   },
   listItemContent: {
     flex: 1,
+    marginRight: 8,
   },
   listItemTitle: {
     color: theme.text,
+    marginBottom: 2,
+  },
+  listItemSubtitle: {
+    color: theme.textSecondary,
   },
   descriptionSection: {
     backgroundColor: theme.card,

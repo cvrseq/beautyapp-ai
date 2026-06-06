@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { useHairType } from '@/hooks/useHairType';
 import { getHairTypeOptions, HairType } from '@/types/hairType';
+import { TranslationKey } from '@/constants/i18n';
+import { useLocale } from '@/hooks/useLocale';
 import { APPLE_TEXT_STYLES } from '@/constants/fonts';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronArrow } from '@/components/ChevronArrow';
@@ -22,6 +24,7 @@ export default function HairTypeQuizScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const { hairType, saveHairType, isLoading } = useHairType();
   const { theme } = useTheme();
+  const { t } = useLocale();
   const styles = useMemo(() => createThemedStyles(theme), [theme]);
 
   useEffect(() => {
@@ -32,14 +35,10 @@ export default function HairTypeQuizScreen() {
 
   const handleSelect = async (type: HairType) => {
     if (isSaving) return;
-
     setSelectedType(type);
-
     try {
       setIsSaving(true);
       await saveHairType(type);
-
-      // Возвращаемся назад через небольшую задержку для лучшего UX
       setTimeout(() => {
         if (router.canGoBack()) {
           router.back();
@@ -48,8 +47,7 @@ export default function HairTypeQuizScreen() {
         }
       }, 300);
     } catch (error) {
-      console.error('Ошибка сохранения типа волос:', error);
-      alert('Не удалось сохранить тип волос. Попробуйте ещё раз.');
+      console.error('Failed to save hair type:', error);
     } finally {
       setIsSaving(false);
     }
@@ -57,7 +55,6 @@ export default function HairTypeQuizScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Navigation Bar */}
       <View style={styles.navBar}>
         <TouchableOpacity
           style={styles.backButton}
@@ -77,16 +74,13 @@ export default function HairTypeQuizScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Header */}
       <View style={styles.header}>
         <Text style={[APPLE_TEXT_STYLES.largeTitle, styles.title]}>
-          Тип волос
+          {t('quiz.hair.title')}
         </Text>
       </View>
 
-      {/* Content */}
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Hair Types Section */}
         <View style={styles.section}>
           {HAIR_TYPES.map((type, index) => {
             const isSelected = selectedType === type.id;
@@ -102,7 +96,10 @@ export default function HairTypeQuizScreen() {
               >
                 <View style={styles.listItemContent}>
                   <Text style={[APPLE_TEXT_STYLES.body, styles.listItemTitle]}>
-                    {type.label}
+                    {t(('hair.' + type.id) as TranslationKey)}
+                  </Text>
+                  <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
+                    {t(('hair.desc.' + type.id) as TranslationKey)}
                   </Text>
                 </View>
                 {isSelected && (
@@ -113,10 +110,9 @@ export default function HairTypeQuizScreen() {
           })}
         </View>
 
-        {/* Description Section */}
         <View style={styles.descriptionSection}>
           <Text style={[APPLE_TEXT_STYLES.subhead, styles.descriptionText]}>
-            Выберите тип волос, чтобы мы могли подобрать для вас идеальную косметику для волос и предупредить о неподходящих продуктах.
+            {t('quiz.hair.desc')}
           </Text>
         </View>
       </ScrollView>
@@ -179,9 +175,14 @@ const createThemedStyles = (theme: Theme) => StyleSheet.create({
   },
   listItemContent: {
     flex: 1,
+    marginRight: 8,
   },
   listItemTitle: {
     color: theme.text,
+    marginBottom: 2,
+  },
+  listItemSubtitle: {
+    color: theme.textSecondary,
   },
   descriptionSection: {
     backgroundColor: theme.card,

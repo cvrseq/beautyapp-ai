@@ -203,15 +203,11 @@ export const quickIdentifyProduct = internalAction({
                 {
                   type: 'text',
                   text: [
-                    'Определи, является ли объект на изображении косметическим продуктом или парфюмом.',
-                    '',
-                    'ВАЖНО: Если на изображении НЕ косметика и НЕ парфюм (например: еда, мебель, техника, одежда, животные, люди, природа, предметы быта, украшения, канцелярия и т.д.), верни category: "not_beauty".',
-                    '',
-                    'Косметика включает: кремы, сыворотки, маски, тоники, очищающие средства, шампуни, кондиционеры, средства для укладки, декоративную косметику (помады, тени, тушь, румяна и т.д.), средства для ухода за кожей и волосами.',
-                    'Парфюм включает: духи, туалетную воду, одеколон, парфюмерную воду.',
-                    '',
-                    'Верни ТОЛЬКО JSON: {"brand": "...", "name": "...", "confidence": 0-1, "category": "skin"|"hair"|"mixed"|"perfume"|"not_beauty"}',
-                    'Если это не бьюти-продукт, поставь confidence: 0 и category: "not_beauty".',
+                    'На фото может быть косметика, средство по уходу за кожей/волосами или парфюм — либо посторонний предмет.',
+                    'Сначала реши: это косметический продукт или парфюм?',
+                    'Если НЕТ (еда, напиток, техника, гаджет, одежда, человек, животное, мебель, любой непрофильный предмет) — верни СТРОГО {"isBeauty": false}. Ничего не выдумывай.',
+                    'Если ДА — верни ТОЛЬКО JSON: {"isBeauty": true, "brand": "...", "name": "...", "confidence": 0-1, "category": "skin"|"hair"|"mixed"|"perfume"|"unknown"}.',
+                    'confidence — реальная уверенность, что ты верно опознал бренд и название. Не уверен — ставь низкое значение, не угадывай.',
                     'Без markdown, без объяснений, только JSON.',
                   ].join(' '),
                 },
@@ -257,6 +253,16 @@ export const quickIdentifyProduct = internalAction({
         parsed = JSON.parse(jsonMatch ? jsonMatch[0] : text);
       } catch {
         return { error: 'Ошибка парсинга ответа.' };
+      }
+
+      // Gate: object is not a cosmetic/perfume — reject early to skip full analysis
+      if (
+        parsed &&
+        typeof parsed === 'object' &&
+        'isBeauty' in parsed &&
+        (parsed as Record<string, unknown>).isBeauty === false
+      ) {
+        return { notBeauty: true as const };
       }
 
       if (
@@ -374,6 +380,9 @@ export const identifyProduct = internalAction({
                   type: 'text',
                   text: [
                     'Ты — эксперт косметики и парфюмерии.',
+                    'ШАГ 1. Определи, изображён ли на фото косметический продукт, средство по уходу за кожей/волосами или парфюм.',
+                    'Если на фото НЕ профильный объект (еда, напиток, гаджет, техника, одежда, человек, животное, мебель, любой случайный предмет) — верни СТРОГО {"isBeauty": false} и больше ничего. Категорически запрещено выдумывать несуществующий продукт.',
+                    'ШАГ 2. Если это косметика или парфюм — добавь в JSON поле "isBeauty": true и продолжай анализ по инструкции ниже.',
                     'Определи бренд, название и категорию продукта.',
                     '',
                     'ВАЖНО: Если на изображении НЕ косметика и НЕ парфюм (еда, мебель, техника, одежда, украшения, канцелярия и т.д.), верни category: "not_beauty" с confidence: 0.',
@@ -529,6 +538,18 @@ export const identifyProduct = internalAction({
         console.error('OpenRouter JSON parse error', e, text);
         return {
           error: 'ИИ вернул некорректные данные. Попробуйте переснять фото.',
+        };
+      }
+
+      // Gate: reject non-beauty objects before they get invented into a product
+      if (
+        parsed &&
+        typeof parsed === 'object' &&
+        'isBeauty' in parsed &&
+        (parsed as Record<string, unknown>).isBeauty === false
+      ) {
+        return {
+          error: 'Не удалось распознать. Похоже, на фото нет косметики или парфюма.',
         };
       }
 

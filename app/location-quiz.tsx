@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { useLocation } from '@/hooks/useLocation';
 import { getLocationOptions, Location } from '@/types/userProfile';
+import { TranslationKey } from '@/constants/i18n';
+import { useLocale } from '@/hooks/useLocale';
 import { APPLE_TEXT_STYLES } from '@/constants/fonts';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronArrow } from '@/components/ChevronArrow';
@@ -22,6 +24,7 @@ export default function LocationQuizScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const { location, saveLocation, isLoading } = useLocation();
   const { theme } = useTheme();
+  const { t } = useLocale();
   const styles = useMemo(() => createThemedStyles(theme), [theme]);
 
   useEffect(() => {
@@ -32,13 +35,10 @@ export default function LocationQuizScreen() {
 
   const handleSelect = async (value: Location) => {
     if (isSaving) return;
-
     setSelectedLocation(value);
-
     try {
       setIsSaving(true);
       await saveLocation(value);
-
       setTimeout(() => {
         if (router.canGoBack()) {
           router.back();
@@ -47,8 +47,7 @@ export default function LocationQuizScreen() {
         }
       }, 300);
     } catch (error) {
-      console.error('Ошибка сохранения локации:', error);
-      alert('Не удалось сохранить локацию. Попробуйте ещё раз.');
+      console.error('Failed to save location:', error);
     } finally {
       setIsSaving(false);
     }
@@ -56,7 +55,6 @@ export default function LocationQuizScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Navigation Bar */}
       <View style={styles.navBar}>
         <TouchableOpacity
           style={styles.backButton}
@@ -76,16 +74,13 @@ export default function LocationQuizScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Header */}
       <View style={styles.header}>
         <Text style={[APPLE_TEXT_STYLES.largeTitle, styles.title]}>
-          Локация
+          {t('quiz.location.title')}
         </Text>
       </View>
 
-      {/* Content */}
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Location Section */}
         <View style={styles.section}>
           {LOCATIONS.map((item, index) => {
             const isSelected = selectedLocation === item.id;
@@ -104,10 +99,10 @@ export default function LocationQuizScreen() {
                 </View>
                 <View style={styles.listItemContent}>
                   <Text style={[APPLE_TEXT_STYLES.body, styles.listItemTitle]}>
-                    {item.label}
+                    {t(('location.' + item.id) as TranslationKey)}
                   </Text>
                   <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
-                    {item.desc}
+                    {t(('location.desc.' + item.id) as TranslationKey)}
                   </Text>
                 </View>
                 {isSelected && (
@@ -118,10 +113,9 @@ export default function LocationQuizScreen() {
           })}
         </View>
 
-        {/* Description Section */}
         <View style={styles.descriptionSection}>
           <Text style={[APPLE_TEXT_STYLES.subhead, styles.descriptionText]}>
-            Климат вашего города влияет на потребности кожи. Высокая влажность, загрязнение воздуха и уровень UV-излучения учитываются в рекомендациях.
+            {t('quiz.location.desc')}
           </Text>
         </View>
       </ScrollView>

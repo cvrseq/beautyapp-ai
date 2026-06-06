@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { APPLE_TEXT_STYLES } from '@/constants/fonts';
 import { ChevronArrow } from '@/components/ChevronArrow';
 import { useAuth } from '@/hooks/useAuth';
+import { useLocale } from '@/hooks/useLocale';
 import { useTheme, Theme } from '@/hooks/useTheme';
 
 export default function LoginScreen() {
@@ -27,19 +28,14 @@ export default function LoginScreen() {
 
   const { login, completeOnboarding } = useAuth();
   const { theme } = useTheme();
+  const { t } = useLocale();
   const styles = useMemo(() => createThemedStyles(theme), [theme]);
 
   const validateForm = (): string | null => {
-    if (!email.trim()) {
-      return 'Введите email';
-    }
+    if (!email.trim()) return t('auth.login.errEmail');
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return 'Неверный формат email';
-    }
-    if (!password) {
-      return 'Введите пароль';
-    }
+    if (!emailRegex.test(email)) return t('auth.login.errEmailFmt');
+    if (!password) return t('auth.login.errPassword');
     return null;
   };
 
@@ -55,16 +51,14 @@ export default function LoginScreen() {
 
     try {
       const result = await login(email.trim(), password);
-
       if (!result.success) {
-        setError(result.error || 'Ошибка входа');
+        setError(result.error || t('auth.login.errFailed'));
         return;
       }
-
       await completeOnboarding();
       router.replace('/(tabs)');
     } catch (e) {
-      setError('Произошла ошибка. Попробуйте ещё раз.');
+      setError(t('errGeneric'));
     } finally {
       setIsSubmitting(false);
     }
@@ -76,7 +70,6 @@ export default function LoginScreen() {
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        {/* Navigation Bar */}
         <View style={styles.navBar}>
           <TouchableOpacity
             style={styles.backButton}
@@ -85,7 +78,7 @@ export default function LoginScreen() {
           >
             <ChevronArrow color={theme.primary} size={20} direction="left" />
             <Text style={[APPLE_TEXT_STYLES.body, styles.backButtonText]}>
-              Назад
+              {t('back')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -96,17 +89,15 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Header */}
           <View style={styles.header}>
             <Text style={[APPLE_TEXT_STYLES.largeTitle, styles.title]}>
-              Вход
+              {t('auth.login.title')}
             </Text>
             <Text style={[APPLE_TEXT_STYLES.body, styles.subtitle]}>
-              Войдите в аккаунт, чтобы продолжить
+              {t('auth.login.subtitle')}
             </Text>
           </View>
 
-          {/* Error Message */}
           {error && (
             <View style={styles.errorContainer}>
               <Ionicons name="alert-circle" size={20} color={theme.error} />
@@ -116,9 +107,7 @@ export default function LoginScreen() {
             </View>
           )}
 
-          {/* Form */}
           <View style={styles.form}>
-            {/* Email Field */}
             <View style={styles.inputGroup}>
               <Text style={[APPLE_TEXT_STYLES.subhead, styles.inputLabel]}>
                 Email
@@ -138,15 +127,14 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            {/* Password Field */}
             <View style={styles.inputGroup}>
               <Text style={[APPLE_TEXT_STYLES.subhead, styles.inputLabel]}>
-                Пароль
+                {t('auth.login.passwordLabel')}
               </Text>
               <View style={styles.inputContainer}>
                 <TextInput
                   style={[APPLE_TEXT_STYLES.body, styles.input, styles.passwordInput]}
-                  placeholder="Введите пароль"
+                  placeholder={t('auth.login.passwordPlaceholder')}
                   placeholderTextColor={theme.textTertiary}
                   value={password}
                   onChangeText={setPassword}
@@ -169,7 +157,6 @@ export default function LoginScreen() {
             </View>
           </View>
 
-          {/* Submit Button */}
           <TouchableOpacity
             style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
             onPress={handleLogin}
@@ -180,12 +167,11 @@ export default function LoginScreen() {
               <ActivityIndicator color={theme.textInverse} />
             ) : (
               <Text style={[APPLE_TEXT_STYLES.headline, styles.submitButtonText]}>
-                Войти
+                {t('auth.login.submit')}
               </Text>
             )}
           </TouchableOpacity>
 
-          {/* Register Link */}
           <TouchableOpacity
             style={styles.registerLink}
             onPress={() => router.replace('/auth/register' as RelativePathString)}
@@ -193,8 +179,8 @@ export default function LoginScreen() {
             disabled={isSubmitting}
           >
             <Text style={[APPLE_TEXT_STYLES.subhead, styles.registerLinkText]}>
-              Нет аккаунта?{' '}
-              <Text style={styles.registerLinkAccent}>Зарегистрироваться</Text>
+              {t('auth.login.noAccount')}{' '}
+              <Text style={styles.registerLinkAccent}>{t('auth.login.toRegister')}</Text>
             </Text>
           </TouchableOpacity>
         </ScrollView>

@@ -1,6 +1,6 @@
 import { v } from 'convex/values';
 import { Id } from './_generated/dataModel';
-import { internalMutation, internalQuery, query } from './_generated/server';
+import { internalMutation, internalQuery, mutation, query } from './_generated/server';
 import { SEARCH, VALIDATION } from './constants';
 
 export const saveProduct = internalMutation({
@@ -48,6 +48,7 @@ export const saveProduct = internalMutation({
       normal: v.optional(v.object({ status: v.string(), score: v.number() })),
       damaged: v.optional(v.object({ status: v.string(), score: v.number() })),
     })),
+    barcode: v.optional(v.string()),
     perfumeData: v.optional(v.object({
       notePyramid: v.object({
         top: v.array(v.string()),
@@ -101,12 +102,43 @@ export const saveProduct = internalMutation({
       pros: args.analysis?.pros || [],
       cons: args.analysis?.cons || [],
       category: args.category || 'unknown',
+      barcode: args.barcode,
       scannedBy: args.scannedBy,
       commentsCount: 0,
       skinTypeCompatibility: args.skinCompatibility || undefined,
       hairTypeCompatibility: args.hairCompatibility || undefined,
       perfumeData: args.perfumeData || undefined,
     });
+  },
+});
+
+// Поиск по штрихкоду — публичный (camera.tsx использует useQuery)
+export const findByBarcode = query({
+  args: { barcode: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query('products')
+      .withIndex('by_barcode', (q) => q.eq('barcode', args.barcode))
+      .first();
+  },
+});
+
+// Поиск по штрихкоду — internal (для использования в actions)
+export const findByBarcodeInternal = internalQuery({
+  args: { barcode: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query('products')
+      .withIndex('by_barcode', (q) => q.eq('barcode', args.barcode))
+      .first();
+  },
+});
+
+// Сохранить штрихкод к существующему продукту
+export const attachBarcode = mutation({
+  args: { productId: v.id('products'), barcode: v.string() },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.productId, { barcode: args.barcode });
   },
 });
 

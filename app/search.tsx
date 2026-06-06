@@ -2,6 +2,7 @@ import { ChevronArrow } from '@/components/ChevronArrow';
 import { APPLE_TEXT_STYLES } from '@/constants/fonts';
 import { SEARCH } from '@/constants/thresholds';
 import { api } from '@/convex/_generated/api';
+import { useLocale } from '@/hooks/useLocale';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from 'convex/react';
 import { router } from 'expo-router';
@@ -24,16 +25,15 @@ export default function SearchScreen() {
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const { theme } = useTheme();
+  const { t } = useLocale();
   const styles = useMemo(() => createThemedStyles(theme), [theme]);
 
-  // Используем поиск только когда запрос не пустой и длина >= MIN_QUERY_LENGTH
   const shouldSearch = debouncedQuery.trim().length >= SEARCH.MIN_QUERY_LENGTH;
   const products = useQuery(
     api.products.searchProducts,
     shouldSearch ? { searchQuery: debouncedQuery } : 'skip'
   );
 
-  // Debounce поиска (500ms)
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedQuery(searchQuery);
@@ -87,7 +87,7 @@ export default function SearchScreen() {
           <TextInput
             ref={inputRef}
             style={[APPLE_TEXT_STYLES.body, styles.searchInput]}
-            placeholder="Введи запрос"
+            placeholder={t('home.search')}
             placeholderTextColor={theme.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -112,7 +112,9 @@ export default function SearchScreen() {
           {products === undefined ? (
             <View style={styles.emptyState}>
               <ActivityIndicator size="large" color={theme.text} />
-              <Text style={[APPLE_TEXT_STYLES.body, styles.emptyStateText]}>Ищем продукты...</Text>
+              <Text style={[APPLE_TEXT_STYLES.body, styles.emptyStateText]}>
+                {t('search.loading')}
+              </Text>
             </View>
           ) : products.length === 0 ? (
             <View style={styles.emptyState}>
@@ -120,10 +122,10 @@ export default function SearchScreen() {
                 <Ionicons name="search-outline" size={40} color={theme.textTertiary} />
               </View>
               <Text style={[APPLE_TEXT_STYLES.headline, styles.emptyStateTitle]} numberOfLines={1}>
-                Ничего не найдено
+                {t('search.nothingFound')}
               </Text>
               <Text style={[APPLE_TEXT_STYLES.subhead, styles.emptyStateSubtitle]} numberOfLines={2}>
-                Попробуй другой запрос или используй сканер
+                {t('search.tryAnother')}
               </Text>
             </View>
           ) : (
@@ -157,7 +159,7 @@ export default function SearchScreen() {
               ListEmptyComponent={
                 <View style={styles.emptyState}>
                   <Text style={[APPLE_TEXT_STYLES.subhead, styles.emptyStateSubtitle]}>
-                    Продукты не найдены
+                    {t('search.notFound')}
                   </Text>
                 </View>
               }

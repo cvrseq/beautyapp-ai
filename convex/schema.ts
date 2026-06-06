@@ -62,6 +62,7 @@ export default defineSchema({
     scannedBy: v.optional(v.id('users')),
     commentsCount: v.optional(v.number()),
     // Category now includes perfume
+    barcode: v.optional(v.string()),
     category: v.optional(v.union(
       v.literal('skin'),
       v.literal('hair'),
@@ -135,5 +136,6 @@ export default defineSchema({
     .index('by_name', ['name'])
     .index('by_brand', ['brand'])
     .index('by_brand_name', ['brand', 'name'])
+    .index('by_barcode', ['barcode'])
     .index('by_scannedBy', ['scannedBy']),
 });

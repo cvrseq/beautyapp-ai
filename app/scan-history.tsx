@@ -1,6 +1,7 @@
 import { APPLE_TEXT_STYLES } from '@/constants/fonts';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
+import { useLocale } from '@/hooks/useLocale';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from 'convex/react';
 import { router } from 'expo-router';
@@ -20,6 +21,7 @@ import { useTheme, Theme } from '@/hooks/useTheme';
 export default function ScanHistoryScreen() {
   const products = useQuery(api.products.getAllProducts);
   const { theme } = useTheme();
+  const { t, locale } = useLocale();
   const styles = useMemo(() => createThemedStyles(theme), [theme]);
 
   const handleProductPress = (productId: Id<'products'>) => {
@@ -36,13 +38,13 @@ export default function ScanHistoryScreen() {
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
     if (diffDays === 0) {
-      return 'Сегодня';
+      return t('history.today');
     } else if (diffDays === 1) {
-      return 'Вчера';
+      return t('history.yesterday');
     } else if (diffDays < 7) {
-      return `${diffDays} дн. назад`;
+      return `${diffDays} ${t('history.daysAgo')}`;
     } else {
-      return date.toLocaleDateString('ru-RU', {
+      return date.toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-US', {
         day: 'numeric',
         month: 'short',
         year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
@@ -56,7 +58,7 @@ export default function ScanHistoryScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.text} />
           <Text style={[APPLE_TEXT_STYLES.body, styles.loadingText]}>
-            Загрузка истории...
+            {t('history.loading')}
           </Text>
         </View>
       </SafeAreaView>
@@ -75,7 +77,7 @@ export default function ScanHistoryScreen() {
             <Ionicons name="chevron-back" size={24} color={theme.text} />
           </TouchableOpacity>
           <Text style={[APPLE_TEXT_STYLES.largeTitle, styles.title]}>
-            История сканов
+            {t('history.title')}
           </Text>
         </View>
         <View style={styles.emptyContainer}>
@@ -83,10 +85,10 @@ export default function ScanHistoryScreen() {
             <Ionicons name="images-outline" size={64} color={theme.textTertiary} />
           </View>
           <Text style={[APPLE_TEXT_STYLES.title2, styles.emptyTitle]}>
-            История пуста
+            {t('history.emptyTitle')}
           </Text>
           <Text style={[APPLE_TEXT_STYLES.body, styles.emptyText]}>
-            Отсканируйте продукты, чтобы они появились здесь
+            {t('history.emptyText')}
           </Text>
           <TouchableOpacity
             style={styles.emptyButton}
@@ -94,7 +96,7 @@ export default function ScanHistoryScreen() {
             activeOpacity={0.7}
           >
             <Text style={[APPLE_TEXT_STYLES.headline, styles.emptyButtonText]}>
-              Открыть сканер
+              {t('history.openScanner')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -113,7 +115,7 @@ export default function ScanHistoryScreen() {
           <Ionicons name="chevron-back" size={24} color={theme.text} />
         </TouchableOpacity>
         <Text style={[APPLE_TEXT_STYLES.largeTitle, styles.title]}>
-          История сканов
+          {t('history.title')}
         </Text>
       </View>
 

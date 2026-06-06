@@ -43,6 +43,7 @@ function generateImageHash(base64: string): string {
 export const analyzeProduct = action({
   args: {
     imageBase64: v.string(),
+    barcode: v.optional(v.string()),
     skinType: v.optional(v.union(
       v.literal('dry'),
       v.literal('oily'),
@@ -91,6 +92,53 @@ export const analyzeProduct = action({
     ))
   },
   handler: async (ctx, args): Promise<ProductResult> => {
+    // ========================================
+    // PHASE -1: Barcode lookup (free, on-device barcode → DB key)
+    // If barcode provided and known → instant cache hit, zero AI cost
+    // ========================================
+    if (args.barcode) {
+      const byBarcode = await ctx.runQuery(internal.products.findByBarcodeInternal, {
+        barcode: args.barcode,
+      });
+
+      if (byBarcode) {
+        console.log('Cache hit: barcode found', args.barcode);
+
+        if (byBarcode.category === 'perfume' && byBarcode.perfumeData) {
+          return {
+            productId: byBarcode._id,
+            brand: byBarcode.brand,
+            name: byBarcode.name,
+            perfumeData: byBarcode.perfumeData as PerfumeData,
+            price: byBarcode.priceEstimate,
+            category: 'perfume',
+            fromCache: true,
+          };
+        }
+
+        let analysis: CosmeticAnalysis | undefined;
+        try {
+          analysis = typeof byBarcode.ingredientsAnalysis === 'string'
+            ? JSON.parse(byBarcode.ingredientsAnalysis) as CosmeticAnalysis
+            : byBarcode.ingredientsAnalysis as CosmeticAnalysis;
+        } catch {
+          // fall through to image-hash phase
+        }
+
+        if (analysis) {
+          return {
+            productId: byBarcode._id,
+            brand: byBarcode.brand,
+            name: byBarcode.name,
+            analysis,
+            price: byBarcode.priceEstimate,
+            category: byBarcode.category as ProductCategory,
+            fromCache: true,
+          };
+        }
+      }
+    }
+
     // ========================================
     // PHASE 0: Check image hash cache
     // If we've seen this exact image before, return cached result immediately
@@ -149,8 +197,13 @@ export const analyzeProduct = action({
       imageBase64: args.imageBase64,
     });
 
+    // Early gate: quick pass says this is not a cosmetic/perfume — stop before full analysis
+    if (quickResult && typeof quickResult === 'object' && 'notBeauty' in quickResult && quickResult.notBeauty) {
+      return { error: 'Не удалось распознать. Похоже, на фото нет косметики или парфюма.' };
+    }
+
     // If quick identification succeeded, check product cache
-    if (quickResult && typeof quickResult === 'object' && !('error' in quickResult)) {
+    if (quickResult && typeof quickResult === 'object' && !('error' in quickResult) && !('notBeauty' in quickResult)) {
       const { brand, name, confidence, category } = quickResult as {
         brand: string;
         name: string;
@@ -392,6 +445,7 @@ export const analyzeProduct = action({
         price: searchPrice,
         storageId: storageId,
         category: productInfo.category || 'unknown',
+        barcode: args.barcode,
         skinCompatibility: productInfo.skinCompatibility as Record<string, { status: string; score: number }> | undefined,
         hairCompatibility: productInfo.hairCompatibility as Record<string, { status: string; score: number }> | undefined,
         perfumeData: productInfo.perfumeData as PerfumeData | undefined,

@@ -4,14 +4,13 @@ import { useHairType } from '@/hooks/useHairType';
 import { useAge } from '@/hooks/useAge';
 import { useLifestyle } from '@/hooks/useLifestyle';
 import { useLocation } from '@/hooks/useLocation';
-import { IMAGE_PROCESSING } from '@/constants/thresholds';
+import { useLocale } from '@/hooks/useLocale';
 import { APPLE_TEXT_STYLES } from '@/constants/fonts';
-import { useAction } from 'convex/react';
+import { useAction, useQuery } from 'convex/react';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import * as ImageManipulator from 'expo-image-manipulator';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -21,24 +20,66 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import type { BarcodeType } from 'expo-camera';
+
+const BEAUTY_BARCODE_TYPES: BarcodeType[] = ['ean13', 'ean8', 'upc_a', 'upc_e', 'qr'];
+const BARCODE_COOLDOWN_MS = 2000;
+
 export default function CameraScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
+
   const cameraRef = useRef<CameraView>(null);
+  const hasNavigatedRef = useRef(false);
+  const lastBarcodeRef = useRef<{ value: string; ts: number } | null>(null);
+
   const analyze = useAction(api.analysis.analyzeProduct);
   const { skinType } = useSkinType();
   const { hairType } = useHairType();
   const { age } = useAge();
   const { lifestyle } = useLifestyle();
   const { location } = useLocation();
+  const { t } = useLocale();
 
-  // Принудительно запрашиваем права
+  const barcodeProduct = useQuery(
+    api.products.findByBarcode,
+    scannedBarcode ? { barcode: scannedBarcode } : 'skip'
+  );
+
+  useEffect(() => {
+    if (!barcodeProduct || hasNavigatedRef.current) return;
+    hasNavigatedRef.current = true;
+    router.push({ pathname: '/product-result', params: { id: barcodeProduct._id } });
+  }, [barcodeProduct]);
+
   useEffect(() => {
     if (permission && !permission.granted && permission.canAskAgain) {
       requestPermission();
     }
   }, [permission]);
+
+  const handleBarcodeScanned = useCallback(
+    ({ data }: { data: string }) => {
+      if (isAnalyzing || hasNavigatedRef.current) return;
+
+      const now = Date.now();
+      const last = lastBarcodeRef.current;
+      if (last && last.value === data && now - last.ts < BARCODE_COOLDOWN_MS) return;
+
+      lastBarcodeRef.current = { value: data, ts: now };
+      setScannedBarcode(data);
+      setErrorMessage(null);
+    },
+    [isAnalyzing]
+  );
+
+  const clearBarcode = () => {
+    setScannedBarcode(null);
+    lastBarcodeRef.current = null;
+    hasNavigatedRef.current = false;
+  };
 
   if (!permission) return <View style={styles.container} />;
 
@@ -60,10 +101,10 @@ export default function CameraScreen() {
             <Ionicons name="camera-outline" size={40} color="#000" />
           </View>
           <Text style={[APPLE_TEXT_STYLES.title3, { textAlign: 'center', color: '#000', marginBottom: 8, maxWidth: '100%' }]} numberOfLines={2}>
-            Нужен доступ к камере
+            {t('camera.permTitle')}
           </Text>
           <Text style={[APPLE_TEXT_STYLES.callout, { textAlign: 'center', color: '#8E8E93', maxWidth: '100%' }]} numberOfLines={3}>
-            Чтобы сканировать состав продуктов, разрешите доступ к камере
+            {t('camera.permText')}
           </Text>
         </View>
         <TouchableOpacity
@@ -82,7 +123,7 @@ export default function CameraScreen() {
           }}
         >
           <Text style={[APPLE_TEXT_STYLES.headline, { color: 'white', textAlign: 'center' }]}>
-            Разрешить доступ
+            {t('camera.allowAccess')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -98,7 +139,7 @@ export default function CameraScreen() {
           }}
         >
           <Text style={[APPLE_TEXT_STYLES.headline, { color: '#000', textAlign: 'center' }]}>
-            Назад
+            {t('back')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -107,117 +148,110 @@ export default function CameraScreen() {
 
   const takeAndAnalyzePhoto = async () => {
     if (!cameraRef.current || isAnalyzing) return;
+
+    const safetyTimer = setTimeout(() => {
+      console.warn('[Camera] SAFETY-NET: forcing isAnalyzing=false after 100s');
+      setIsAnalyzing(false);
+      setErrorMessage(t('camera.errSafety'));
+    }, 100_000);
+
     try {
       setErrorMessage(null);
       setIsAnalyzing(true);
-      console.log('[Camera] Taking picture...');
 
       const photo = await cameraRef.current.takePictureAsync({
-        quality: IMAGE_PROCESSING.QUALITY,
+        quality: 0.3,
+        base64: true,
       });
 
-      if (photo) {
-        console.log('[Camera] Picture taken, URI:', photo.uri);
+      if (!photo?.base64) {
+        setErrorMessage(t('camera.errNoPhoto'));
+        return;
+      }
 
-        const manipulated = await ImageManipulator.manipulateAsync(
-          photo.uri,
-          [{ resize: { width: IMAGE_PROCESSING.MAX_WIDTH } }],
-          {
-            compress: IMAGE_PROCESSING.COMPRESSION,
-            format: ImageManipulator.SaveFormat.JPEG,
-            base64: true,
-          }
-        );
+      type AnalyzeResult = Awaited<ReturnType<typeof analyze>>;
+      const TIMEOUT_MS = 60_000;
+      const MAX_RETRIES = 3;
 
-        if (manipulated.base64) {
-          console.log('[Camera] Image processed, base64 length:', manipulated.base64.length);
-          console.log('[Camera] Sending to AI with skinType:', skinType, 'hairType:', hairType, 'age:', age, 'lifestyle:', lifestyle, 'location:', location);
+      let result: AnalyzeResult | null = null;
+      let lastErr: unknown = null;
 
-          // Retry logic for connection issues
-          let result = null;
-          let lastError = null;
-          const MAX_RETRIES = 2;
-
-          for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-            try {
-              console.log(`[Camera] Attempt ${attempt}/${MAX_RETRIES}`);
-              result = await analyze({
-                imageBase64: manipulated.base64,
-                skinType: skinType || undefined,
-                hairType: hairType || undefined,
-                age: age || undefined,
-                lifestyle: lifestyle || undefined,
-                location: location || undefined,
-              });
-              break; // Success, exit retry loop
-            } catch (retryError) {
-              lastError = retryError;
-              console.error(`[Camera] Attempt ${attempt} failed:`, retryError);
-              if (attempt < MAX_RETRIES) {
-                // Wait before retry
-                await new Promise(resolve => setTimeout(resolve, 1500));
-              }
-            }
-          }
-
-          if (!result && lastError) {
-            throw lastError;
-          }
-
-          console.log('[Camera] AI result received:', result);
-
-          if (!result) {
-            console.error('[Camera] No result from AI');
-            setErrorMessage('Не удалось получить ответ от сервера. Попробуйте ещё раз.');
-          } else if ('error' in result) {
-            console.error('[Camera] AI returned error:', result.error);
-            setErrorMessage(result.error);
-          } else if ('productId' in result) {
-            console.log('[Camera] Success! Product ID:', result.productId);
-            router.push({
-              pathname: '/product-result',
-              params: { id: result.productId },
-            });
-          } else {
-            console.error('[Camera] Unexpected result format:', result);
-            setErrorMessage('Не удалось проанализировать фото. Попробуйте поднести камеру ближе и убрать блики.');
-          }
-        } else {
-          console.error('[Camera] No base64 data in manipulated image');
-          setErrorMessage(
-            'Не удалось получить данные снимка. Попробуйте сделать фото ещё раз.'
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          const timeoutPromise = new Promise<never>((_resolve, reject) =>
+            setTimeout(() => reject(new Error('client_timeout')), TIMEOUT_MS)
           );
+          result = await Promise.race([
+            analyze({
+              imageBase64: photo.base64,
+              barcode: scannedBarcode ?? undefined,
+              skinType: skinType || undefined,
+              hairType: hairType || undefined,
+              age: age || undefined,
+              lifestyle: lifestyle || undefined,
+              location: location || undefined,
+            }),
+            timeoutPromise,
+          ]);
+          lastErr = null;
+          break;
+        } catch (err) {
+          lastErr = err;
+          const msg = err instanceof Error ? err.message : '';
+          if ((msg.includes('Connection lost') || msg.includes('WebSocket')) && attempt < MAX_RETRIES) {
+            await new Promise((r) => setTimeout(r, 1500));
+            continue;
+          }
+          throw err;
         }
+      }
+      if (lastErr) throw lastErr;
+
+      if (!result) {
+        setErrorMessage(t('camera.errNoResponse'));
+      } else if ('error' in result) {
+        setErrorMessage(result.error);
+      } else if ('productId' in result) {
+        clearBarcode();
+        router.push({ pathname: '/product-result', params: { id: result.productId } });
+      } else {
+        setErrorMessage(t('camera.errAnalyze'));
       }
     } catch (error) {
-      console.error('[Camera] Error in takeAndAnalyzePhoto:', error);
-      if (error instanceof Error) {
-        console.error('[Camera] Error name:', error.name);
-        console.error('[Camera] Error message:', error.message);
-        console.error('[Camera] Error stack:', error.stack);
-
-        // User-friendly error messages
-        if (error.message.includes('Connection lost') || error.message.includes('WebSocket')) {
-          setErrorMessage('Потеряно соединение с сервером. Проверьте интернет и попробуйте ещё раз.');
-        } else if (error.message.includes('timeout')) {
-          setErrorMessage('Превышено время ожидания. Попробуйте ещё раз.');
-        } else {
-          setErrorMessage('Произошла ошибка. Попробуйте ещё раз.');
-        }
+      const msg = error instanceof Error ? error.message : '';
+      if (msg.includes('Connection lost') || msg.includes('WebSocket')) {
+        setErrorMessage(t('camera.errConnection'));
+      } else if (msg.includes('timeout')) {
+        setErrorMessage(t('camera.errTimeout'));
       } else {
-        setErrorMessage('Неизвестная ошибка. Попробуйте ещё раз.');
+        setErrorMessage(t('camera.errUnknown'));
       }
     } finally {
+      clearTimeout(safetyTimer);
       setIsAnalyzing(false);
     }
   };
 
+  const barcodeStatus: 'checking' | 'not_found' | 'found' | null =
+    scannedBarcode === null
+      ? null
+      : barcodeProduct === undefined
+        ? 'checking'
+        : barcodeProduct === null
+          ? 'not_found'
+          : 'found';
+
   return (
     <View style={styles.container}>
-      {/* ВАЖНО: Используем style={{ flex: 1 }} вместо className */}
-      <CameraView ref={cameraRef} style={styles.camera} facing="back" />
+      <CameraView
+        ref={cameraRef}
+        style={styles.camera}
+        facing="back"
+        barcodeScannerSettings={{ barcodeTypes: BEAUTY_BARCODE_TYPES }}
+        onBarcodeScanned={handleBarcodeScanned}
+      />
 
-      {/* Кнопка назад */}
+      {/* Back button */}
       <SafeAreaView style={styles.topSafeArea} edges={['top']}>
         <TouchableOpacity
           style={styles.backButton}
@@ -228,27 +262,56 @@ export default function CameraScreen() {
         </TouchableOpacity>
       </SafeAreaView>
 
-      {/* Интерфейс поверх камеры */}
+      {/* Overlay */}
       <View style={styles.overlay}>
+        {/* Error box */}
         {errorMessage && !isAnalyzing && (
           <View style={styles.errorBox}>
             <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255, 255, 255, 0.2)', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+              <View style={styles.errorIcon}>
                 <Ionicons name="alert-circle" size={22} color="white" />
               </View>
               <View style={{ flex: 1, flexShrink: 1 }}>
-                <Text style={[APPLE_TEXT_STYLES.headline, { color: 'white', marginBottom: 6 }]} numberOfLines={1}>Не получилось</Text>
-                <Text style={[APPLE_TEXT_STYLES.subhead, { color: 'rgba(255, 255, 255, 0.9)', flexShrink: 1 }]} numberOfLines={3}>{errorMessage}</Text>
+                <Text style={[APPLE_TEXT_STYLES.headline, { color: 'white', marginBottom: 6 }]} numberOfLines={1}>
+                  {t('errorTitle')}
+                </Text>
+                <Text style={[APPLE_TEXT_STYLES.subhead, { color: 'rgba(255,255,255,0.9)', flexShrink: 1 }]} numberOfLines={3}>
+                  {errorMessage}
+                </Text>
               </View>
             </View>
           </View>
         )}
 
+        {/* Barcode indicator */}
+        {barcodeStatus !== null && !isAnalyzing && (
+          <View style={styles.barcodeBox}>
+            <View style={styles.barcodeRow}>
+              <Ionicons
+                name={barcodeStatus === 'found' ? 'checkmark-circle' : barcodeStatus === 'checking' ? 'scan' : 'barcode-outline'}
+                size={16}
+                color={barcodeStatus === 'found' ? '#30D158' : 'rgba(255,255,255,0.85)'}
+              />
+              <Text style={[APPLE_TEXT_STYLES.footnote, styles.barcodeText]} numberOfLines={1}>
+                {barcodeStatus === 'checking' && t('camera.barcodeChecking')}
+                {barcodeStatus === 'not_found' && t('camera.barcodeNotFound')}
+                {barcodeStatus === 'found' && t('camera.barcodeFound')}
+              </Text>
+              {barcodeStatus === 'not_found' && (
+                <TouchableOpacity onPress={clearBarcode} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Ionicons name="close" size={14} color="rgba(255,255,255,0.6)" />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Loading / capture button */}
         {isAnalyzing ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator size="large" color="#000" />
             <Text style={[APPLE_TEXT_STYLES.headline, { marginTop: 16, color: '#000' }]}>
-              ИИ изучает состав...
+              {scannedBarcode ? t('camera.analyzingNew') : t('camera.analyzing')}
             </Text>
           </View>
         ) : (
@@ -265,7 +328,6 @@ export default function CameraScreen() {
   );
 }
 
-// Обычные стили, чтобы исключить глюки NativeWind с камерой
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -286,7 +348,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   loadingBox: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: 'rgba(255,255,255,0.95)',
     padding: 24,
     borderRadius: 16,
     alignItems: 'center',
@@ -297,7 +359,7 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
   },
   errorBox: {
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    backgroundColor: 'rgba(0,0,0,0.85)',
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderRadius: 16,
@@ -308,13 +370,39 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 12,
   },
+  errorIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  barcodeBox: {
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+    maxWidth: '100%',
+  },
+  barcodeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  barcodeText: {
+    color: 'rgba(255,255,255,0.9)',
+    flexShrink: 1,
+  },
   captureButton: {
     width: 80,
     height: 80,
     borderRadius: 40,
     backgroundColor: 'white',
     borderWidth: 4,
-    borderColor: 'rgba(0, 0, 0, 0.1)',
+    borderColor: 'rgba(0,0,0,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -339,13 +427,13 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    backgroundColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 16,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: 'rgba(255,255,255,0.3)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,

@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { useAge } from '@/hooks/useAge';
 import { getAgeRangeOptions, AgeRange } from '@/types/userProfile';
+import { TranslationKey } from '@/constants/i18n';
+import { useLocale } from '@/hooks/useLocale';
 import { APPLE_TEXT_STYLES } from '@/constants/fonts';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronArrow } from '@/components/ChevronArrow';
@@ -22,6 +24,7 @@ export default function AgeQuizScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const { age, saveAge, isLoading } = useAge();
   const { theme } = useTheme();
+  const { t } = useLocale();
   const styles = useMemo(() => createThemedStyles(theme), [theme]);
 
   useEffect(() => {
@@ -32,13 +35,10 @@ export default function AgeQuizScreen() {
 
   const handleSelect = async (value: AgeRange) => {
     if (isSaving) return;
-
     setSelectedAge(value);
-
     try {
       setIsSaving(true);
       await saveAge(value);
-
       setTimeout(() => {
         if (router.canGoBack()) {
           router.back();
@@ -47,8 +47,7 @@ export default function AgeQuizScreen() {
         }
       }, 300);
     } catch (error) {
-      console.error('Ошибка сохранения возраста:', error);
-      alert('Не удалось сохранить возраст. Попробуйте ещё раз.');
+      console.error('Failed to save age:', error);
     } finally {
       setIsSaving(false);
     }
@@ -56,7 +55,6 @@ export default function AgeQuizScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Navigation Bar */}
       <View style={styles.navBar}>
         <TouchableOpacity
           style={styles.backButton}
@@ -76,16 +74,13 @@ export default function AgeQuizScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Header */}
       <View style={styles.header}>
         <Text style={[APPLE_TEXT_STYLES.largeTitle, styles.title]}>
-          Возраст
+          {t('quiz.age.title')}
         </Text>
       </View>
 
-      {/* Content */}
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Age Ranges Section */}
         <View style={styles.section}>
           {AGE_RANGES.map((item, index) => {
             const isSelected = selectedAge === item.id;
@@ -104,10 +99,10 @@ export default function AgeQuizScreen() {
                 </View>
                 <View style={styles.listItemContent}>
                   <Text style={[APPLE_TEXT_STYLES.body, styles.listItemTitle]}>
-                    {item.label}
+                    {t(('age.' + item.id) as TranslationKey)}
                   </Text>
                   <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
-                    {item.desc}
+                    {t(('age.desc.' + item.id) as TranslationKey)}
                   </Text>
                 </View>
                 {isSelected && (
@@ -118,10 +113,9 @@ export default function AgeQuizScreen() {
           })}
         </View>
 
-        {/* Description Section */}
         <View style={styles.descriptionSection}>
           <Text style={[APPLE_TEXT_STYLES.subhead, styles.descriptionText]}>
-            Возраст влияет на потребности кожи. Мы учтём это при анализе состава продуктов.
+            {t('quiz.age.desc')}
           </Text>
         </View>
       </ScrollView>

@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { useLifestyle } from '@/hooks/useLifestyle';
 import { getLifestyleOptions, Lifestyle } from '@/types/userProfile';
+import { TranslationKey } from '@/constants/i18n';
+import { useLocale } from '@/hooks/useLocale';
 import { APPLE_TEXT_STYLES } from '@/constants/fonts';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronArrow } from '@/components/ChevronArrow';
@@ -22,6 +24,7 @@ export default function LifestyleQuizScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const { lifestyle, saveLifestyle, isLoading } = useLifestyle();
   const { theme } = useTheme();
+  const { t } = useLocale();
   const styles = useMemo(() => createThemedStyles(theme), [theme]);
 
   useEffect(() => {
@@ -32,13 +35,10 @@ export default function LifestyleQuizScreen() {
 
   const handleSelect = async (value: Lifestyle) => {
     if (isSaving) return;
-
     setSelectedLifestyle(value);
-
     try {
       setIsSaving(true);
       await saveLifestyle(value);
-
       setTimeout(() => {
         if (router.canGoBack()) {
           router.back();
@@ -47,8 +47,7 @@ export default function LifestyleQuizScreen() {
         }
       }, 300);
     } catch (error) {
-      console.error('Ошибка сохранения образа жизни:', error);
-      alert('Не удалось сохранить образ жизни. Попробуйте ещё раз.');
+      console.error('Failed to save lifestyle:', error);
     } finally {
       setIsSaving(false);
     }
@@ -56,7 +55,6 @@ export default function LifestyleQuizScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Navigation Bar */}
       <View style={styles.navBar}>
         <TouchableOpacity
           style={styles.backButton}
@@ -76,16 +74,13 @@ export default function LifestyleQuizScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Header */}
       <View style={styles.header}>
         <Text style={[APPLE_TEXT_STYLES.largeTitle, styles.title]}>
-          Образ жизни
+          {t('quiz.lifestyle.title')}
         </Text>
       </View>
 
-      {/* Content */}
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Lifestyle Section */}
         <View style={styles.section}>
           {LIFESTYLES.map((item, index) => {
             const isSelected = selectedLifestyle === item.id;
@@ -104,10 +99,10 @@ export default function LifestyleQuizScreen() {
                 </View>
                 <View style={styles.listItemContent}>
                   <Text style={[APPLE_TEXT_STYLES.body, styles.listItemTitle]}>
-                    {item.label}
+                    {t(('lifestyle.' + item.id) as TranslationKey)}
                   </Text>
                   <Text style={[APPLE_TEXT_STYLES.caption1, styles.listItemSubtitle]}>
-                    {item.desc}
+                    {t(('lifestyle.desc.' + item.id) as TranslationKey)}
                   </Text>
                 </View>
                 {isSelected && (
@@ -118,10 +113,9 @@ export default function LifestyleQuizScreen() {
           })}
         </View>
 
-        {/* Description Section */}
         <View style={styles.descriptionSection}>
           <Text style={[APPLE_TEXT_STYLES.subhead, styles.descriptionText]}>
-            Образ жизни влияет на состояние кожи. Стресс, активность и время на улице — всё это учитывается при анализе.
+            {t('quiz.lifestyle.desc')}
           </Text>
         </View>
       </ScrollView>

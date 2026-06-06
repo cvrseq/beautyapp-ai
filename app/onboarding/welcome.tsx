@@ -5,11 +5,13 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { APPLE_TEXT_STYLES } from '@/constants/fonts';
 import { useAuth } from '@/hooks/useAuth';
+import { useLocale } from '@/hooks/useLocale';
 import { useTheme, Theme } from '@/hooks/useTheme';
 
 export default function WelcomeScreen() {
   const { skipOnboarding, isLoading } = useAuth();
   const { theme } = useTheme();
+  const { t } = useLocale();
   const styles = useMemo(() => createThemedStyles(theme), [theme]);
 
   const handleRegister = () => {
@@ -36,7 +38,7 @@ export default function WelcomeScreen() {
           Beauty AI
         </Text>
         <Text style={[APPLE_TEXT_STYLES.body, styles.subtitle]}>
-          Умный анализ косметики и парфюмерии
+          {t('onboarding.subtitle')}
         </Text>
       </View>
 
@@ -48,10 +50,10 @@ export default function WelcomeScreen() {
           </View>
           <View style={styles.featureText}>
             <Text style={[APPLE_TEXT_STYLES.headline, styles.featureTitle]}>
-              Сканируйте продукты
+              {t('onboarding.scanTitle')}
             </Text>
             <Text style={[APPLE_TEXT_STYLES.subhead, styles.featureDescription]}>
-              Анализ состава и совместимости с вашим типом кожи
+              {t('onboarding.scanDesc')}
             </Text>
           </View>
         </View>
@@ -62,10 +64,10 @@ export default function WelcomeScreen() {
           </View>
           <View style={styles.featureText}>
             <Text style={[APPLE_TEXT_STYLES.headline, styles.featureTitle]}>
-              Читайте отзывы
+              {t('onboarding.reviewTitle')}
             </Text>
             <Text style={[APPLE_TEXT_STYLES.subhead, styles.featureDescription]}>
-              Комментарии от реальных пользователей
+              {t('onboarding.reviewDesc')}
             </Text>
           </View>
         </View>
@@ -76,10 +78,10 @@ export default function WelcomeScreen() {
           </View>
           <View style={styles.featureText}>
             <Text style={[APPLE_TEXT_STYLES.headline, styles.featureTitle]}>
-              Делитесь опытом
+              {t('onboarding.shareTitle')}
             </Text>
             <Text style={[APPLE_TEXT_STYLES.subhead, styles.featureDescription]}>
-              Оставляйте комментарии и помогайте другим
+              {t('onboarding.shareDesc')}
             </Text>
           </View>
         </View>
@@ -94,7 +96,7 @@ export default function WelcomeScreen() {
           disabled={isLoading}
         >
           <Text style={[APPLE_TEXT_STYLES.headline, styles.primaryButtonText]}>
-            Создать аккаунт
+            {t('onboarding.register')}
           </Text>
         </TouchableOpacity>
 
@@ -105,7 +107,7 @@ export default function WelcomeScreen() {
           disabled={isLoading}
         >
           <Text style={[APPLE_TEXT_STYLES.body, styles.secondaryButtonText]}>
-            Уже есть аккаунт? Войти
+            {t('onboarding.loginLink')}
           </Text>
         </TouchableOpacity>
 
@@ -116,7 +118,7 @@ export default function WelcomeScreen() {
           disabled={isLoading}
         >
           <Text style={[APPLE_TEXT_STYLES.subhead, styles.skipButtonText]}>
-            Продолжить без регистрации
+            {t('onboarding.skip')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -124,7 +126,7 @@ export default function WelcomeScreen() {
       {/* Note about registration */}
       <View style={styles.noteSection}>
         <Text style={[APPLE_TEXT_STYLES.caption1, styles.noteText]}>
-          Без регистрации вы сможете сканировать продукты, но комментарии будут скрыты
+          {t('onboarding.note')}
         </Text>
       </View>
     </SafeAreaView>

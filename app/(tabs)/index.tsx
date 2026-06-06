@@ -1,10 +1,10 @@
 import { ChevronArrow } from '@/components/ChevronArrow';
-import { FeedList } from '@/components/feed/FeedList';
 import { APPLE_TEXT_STYLES } from '@/constants/fonts';
 import { useAge } from '@/hooks/useAge';
 import { useAuth } from '@/hooks/useAuth';
 import { useHairType } from '@/hooks/useHairType';
 import { useLifestyle } from '@/hooks/useLifestyle';
+import { useLocale } from '@/hooks/useLocale';
 import { useLocation } from '@/hooks/useLocation';
 import { useSkinType } from '@/hooks/useSkinType';
 import { useTheme, Theme } from '@/hooks/useTheme';
@@ -23,12 +23,12 @@ export default function HomeScreen() {
   const { age, isLoading: isLoadingAge, loadAge } = useAge();
   const { lifestyle, isLoading: isLoadingLifestyle, loadLifestyle } = useLifestyle();
   const { location, isLoading: isLoadingLocation, loadLocation } = useLocation();
-  const { user, isRegistered } = useAuth();
+  const { user } = useAuth();
   const { theme, isDark, toggleTheme } = useTheme();
+  const { t, locale, toggleLocale } = useLocale();
 
   const themedStyles = useMemo(() => createThemedStyles(theme), [theme]);
 
-  // Обновляем данные при возврате на экран
   useFocusEffect(
     useCallback(() => {
       loadSkinType();
@@ -47,18 +47,30 @@ export default function HomeScreen() {
           <Text style={[APPLE_TEXT_STYLES.largeTitle, themedStyles.title]}>
             Beauty AI
           </Text>
-          {/* Theme Toggle Button */}
-          <TouchableOpacity
-            style={themedStyles.themeButton}
-            onPress={toggleTheme}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={isDark ? 'sunny' : 'moon'}
-              size={24}
-              color={theme.primary}
-            />
-          </TouchableOpacity>
+          <View style={themedStyles.headerActions}>
+            {/* Locale Toggle */}
+            <TouchableOpacity
+              style={themedStyles.themeButton}
+              onPress={toggleLocale}
+              activeOpacity={0.7}
+            >
+              <Text style={[APPLE_TEXT_STYLES.footnote, { color: theme.primary, fontWeight: '700' }]}>
+                {locale === 'ru' ? 'EN' : 'RU'}
+              </Text>
+            </TouchableOpacity>
+            {/* Theme Toggle */}
+            <TouchableOpacity
+              style={themedStyles.themeButton}
+              onPress={toggleTheme}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={isDark ? 'sunny' : 'moon'}
+                size={24}
+                color={theme.primary}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Search Bar */}
@@ -69,7 +81,7 @@ export default function HomeScreen() {
         >
           <Ionicons name="search" size={18} color={theme.textSecondary} style={themedStyles.searchIcon} />
           <Text style={[APPLE_TEXT_STYLES.body, themedStyles.searchPlaceholder]}>
-            Введи запрос
+            {t('home.search')}
           </Text>
           <Ionicons name="mic-outline" size={18} color={theme.textSecondary} style={themedStyles.micIcon} />
         </TouchableOpacity>
@@ -94,7 +106,7 @@ export default function HomeScreen() {
             <Text style={[APPLE_TEXT_STYLES.subhead, themedStyles.profileSubtitle]}>
               {skinType || hairType
                 ? `${skinType ? SKIN_TYPE_SHORT_LABELS[skinType] : ''}${skinType && hairType ? ', ' : ''}${hairType ? HAIR_TYPE_SHORT_LABELS[hairType] : ''}`
-                : 'Настрой свой профиль для персонализированных рекомендаций'}
+                : t('home.profileSetup')}
             </Text>
           </View>
           <ChevronArrow color={theme.textTertiary} size={20} direction="right" />
@@ -105,8 +117,8 @@ export default function HomeScreen() {
           <SettingsItem
             icon="scan-circle"
             iconColor={theme.primary}
-            title="Умный сканер"
-            subtitle="Наведи камеру на состав продукта"
+            title={t('home.scanner')}
+            subtitle={t('home.scannerSub')}
             onPress={() => router.push('/camera')}
             isLast={true}
             theme={theme}
@@ -118,8 +130,8 @@ export default function HomeScreen() {
           <SettingsItem
             icon="person-circle-outline"
             iconColor={theme.textSecondary}
-            title="Тип кожи"
-            subtitle={skinType ? SKIN_TYPE_SHORT_LABELS[skinType] : 'Не настроено'}
+            title={t('home.skinType')}
+            subtitle={skinType ? SKIN_TYPE_SHORT_LABELS[skinType] : t('notSet')}
             onPress={() => router.push('/skin-type-quiz')}
             showPrompt={!skinType && !isLoadingSkin}
             isLast={false}
@@ -128,8 +140,8 @@ export default function HomeScreen() {
           <SettingsItem
             icon="cut-outline"
             iconColor={theme.textSecondary}
-            title="Тип волос"
-            subtitle={hairType ? HAIR_TYPE_SHORT_LABELS[hairType] : 'Не настроено'}
+            title={t('home.hairType')}
+            subtitle={hairType ? HAIR_TYPE_SHORT_LABELS[hairType] : t('notSet')}
             onPress={() => router.push('/hair-type-quiz')}
             showPrompt={!hairType && !isLoadingHair}
             isLast={false}
@@ -138,8 +150,8 @@ export default function HomeScreen() {
           <SettingsItem
             icon="calendar-outline"
             iconColor={theme.textSecondary}
-            title="Возраст"
-            subtitle={age ? AGE_RANGE_LABELS[age] : 'Не указан'}
+            title={t('home.age')}
+            subtitle={age ? AGE_RANGE_LABELS[age] : t('notSpecifiedM')}
             onPress={() => router.push('/age-quiz')}
             showPrompt={!age && !isLoadingAge}
             isLast={false}
@@ -148,8 +160,8 @@ export default function HomeScreen() {
           <SettingsItem
             icon="fitness-outline"
             iconColor={theme.textSecondary}
-            title="Образ жизни"
-            subtitle={lifestyle ? LIFESTYLE_LABELS[lifestyle] : 'Не указан'}
+            title={t('home.lifestyle')}
+            subtitle={lifestyle ? LIFESTYLE_LABELS[lifestyle] : t('notSpecifiedM')}
             onPress={() => router.push('/lifestyle-quiz')}
             showPrompt={!lifestyle && !isLoadingLifestyle}
             isLast={false}
@@ -158,8 +170,8 @@ export default function HomeScreen() {
           <SettingsItem
             icon="location-outline"
             iconColor={theme.textSecondary}
-            title="Локация"
-            subtitle={location ? LOCATION_LABELS[location] : 'Не указана'}
+            title={t('home.location')}
+            subtitle={location ? LOCATION_LABELS[location] : t('notSpecifiedF')}
             onPress={() => router.push('/location-quiz')}
             showPrompt={!location && !isLoadingLocation}
             isLast={true}
@@ -167,21 +179,13 @@ export default function HomeScreen() {
           />
         </View>
 
-        {/* Community Feed Section */}
-        <View style={themedStyles.feedSection}>
-          <Text style={[APPLE_TEXT_STYLES.caption1, themedStyles.feedHeader]}>
-            СООБЩЕСТВО
-          </Text>
-          <FeedList isUserRegistered={isRegistered} />
-        </View>
-
         {/* History Section */}
         <View style={themedStyles.section}>
           <SettingsItem
             icon="images-outline"
             iconColor={theme.textSecondary}
-            title="История сканов"
-            subtitle="Просмотр сохранённых продуктов"
+            title={t('home.history')}
+            subtitle={t('home.historySub')}
             onPress={() => router.push('/scan-history')}
             isLast={true}
             theme={theme}
@@ -248,6 +252,11 @@ const createThemedStyles = (theme: Theme) => StyleSheet.create({
   },
   title: {
     color: theme.text,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   themeButton: {
     width: 44,
@@ -357,16 +366,5 @@ const createThemedStyles = (theme: Theme) => StyleSheet.create({
   },
   settingsSubtitle: {
     color: theme.textSecondary,
-  },
-  feedSection: {
-    marginBottom: 32,
-  },
-  feedHeader: {
-    color: theme.textSecondary,
-    fontWeight: '600',
-    marginBottom: 12,
-    marginHorizontal: 16,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
 });
